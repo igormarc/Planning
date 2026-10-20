@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { collection, doc, onSnapshot, query, orderBy, where, addDoc, updateDoc, deleteDoc } from 'firebase/firestore'
 import { db } from './firebase'
 
-const useCol = (cid, name, order) => {
+export const useCol = (cid, name, order) => {
   const [rows, setRows] = useState([])
   useEffect(() => onSnapshot(order ? query(collection(db, 'churches', cid, name), orderBy(order)) : collection(db, 'churches', cid, name),
     s => setRows(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => { }), [cid, name, order])
@@ -87,23 +87,35 @@ function Equipos({ cid, plan, teams, ro }) {
 }
 
 function Plan({ cid, plan, songs, teams, ro }) {
-  const [tab, setTab] = useState('orden')
-  return <div className="card">
-    <nav><button className={tab === 'orden' ? 'on' : ''} onClick={() => setTab('orden')}>Orden</button><button className={tab === 'eq' ? 'on' : ''} onClick={() => setTab('eq')}>Equipos</button></nav>
-    {tab === 'orden' ? <Orden cid={cid} plan={plan} songs={songs} ro={ro} /> : <Equipos cid={cid} plan={plan} teams={teams} ro={ro} />}
+  const [tab, setTab] = useState('orden'), [nt, setNt] = useState(plan.notas || '')
+  return <div>
+    <nav className="tabs2">{[['orden', 'Orden'], ['eq', 'Equipos'], ['ens', 'Ensayo']].map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}</nav>
+    {tab === 'orden' && <Orden cid={cid} plan={plan} songs={songs} ro={ro} />}
+    {tab === 'eq' && <Equipos cid={cid} plan={plan} teams={teams} ro={ro} />}
+    {tab === 'ens' && <><h2>Notas de ensayo</h2><textarea rows="8" disabled={ro} placeholder="Notas para el equipo…" value={nt} onChange={e => setNt(e.target.value)} onBlur={() => updateDoc(doc(db, 'churches', cid, 'plans', plan.id), { notas: nt })} /></>}
     <button className="peligro" hidden={ro} onClick={() => confirm('¿Eliminar este plan?') && deleteDoc(doc(db, 'churches', cid, 'plans', plan.id))}>Eliminar plan</button>
   </div>
 }
 
 export function Plans({ cid, ro }) {
   const plans = useCol(cid, 'plans', 'fecha'), songs = useCol(cid, 'songs', 'titulo'), types = useCol(cid, 'serviceTypes', 'nombre'), teams = useCol(cid, 'teams', 'nombre')
-  const [f, setF] = useState({ titulo: '', fecha: '', tipo: '' }), [sel, setSel] = useState(null), [flt, setFlt] = useState(''), [past, setPast] = useState(false)
-  const [nt, setNt] = useState(''), [tn, setTn] = useState(''), [tp, setTp] = useState('')
-  const hoy = new Date().toISOString().slice(0, 10)
-  const shown = plans.filter(p => (!flt || p.tipo === flt) && (past || p.fecha >= hoy))
-  const create = async e => { e.preventDefault(); await addDoc(collection(db, 'churches', cid, 'plans'), { ...f, items: [] }); setF({ ...f, titulo: '', fecha: '' }) }
+  const [f, setF] = useState({ titulo: '', fecha: '', tipo: '' }), [sel, setSel] = useState(null), [past, setPast] = useState(false), [day, setDay] = useState(''), [open, setOpen] = useState('')
+  const [adding, setAdding] = useState(false), [cfg, setCfg] = useState(false), [nt, setNt] = useState(''), [tn, setTn] = useState(''), [tp, setTp] = useState('')
+  const [mes, setMes] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1) })
+  const hoy = new Date().toISOString().slice(0, 10), y = mes.getFullYear(), mo = mes.getMonth()
+  const ds = d => y + '-' + String(mo + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0')
+  const cells = [...Array(mes.getDay()).fill(null), ...Array.from({ length: new Date(y, mo + 1, 0).getDate() }, (_, i) => i + 1)]
+  const prox = plans.filter(p => day ? p.fecha === day : p.fecha >= hoy).slice(0, 8)
+  const cur = plans.find(p => p.id === sel)
+  const create = async e => { e.preventDefault(); await addDoc(collection(db, 'churches', cid, 'plans'), { ...f, items: [] }); setF({ ...f, titulo: '', fecha: '' }); setAdding(false) }
+  if (cur) return <>
+    <button className="ghost sm" onClick={() => setSel(null)}>← Planes</button>
+    <small className="crumb">{cur.tipo}</small><h1 style={{ margin: 0, fontWeight: 500 }}>{cur.titulo}</h1><div className="datepill">{cur.fecha}</div>
+    <Plan cid={cid} plan={cur} songs={songs} teams={teams} ro={ro} />
+  </>
   return <>
-    <details hidden={ro}><summary>Tipos de servicio y equipos</summary>
+    <div className="pagehead"><h1>Planes</h1><span><button className="ghost" hidden={ro} onClick={() => setCfg(!cfg)}>Ajustes</button><button hidden={ro} onClick={() => setAdding(!adding)}>Agregar plan</button></span></div>
+    {cfg && !ro && <div className="card"><h2 style={{ marginTop: 0 }}>Tipos de servicio y equipos</h2>
       <form onSubmit={async e => { e.preventDefault(); await addDoc(collection(db, 'churches', cid, 'serviceTypes'), { nombre: nt }); setNt('') }}>
         <input required placeholder="Nuevo tipo (ej. Domingo 11AM)" value={nt} onChange={e => setNt(e.target.value)} /><button>Agregar tipo</button></form>
       <div>{types.map(x => <span className="pill" key={x.id}>{x.nombre}</span>)}</div>
@@ -111,20 +123,28 @@ export function Plans({ cid, ro }) {
         <input required placeholder="Equipo (ej. Banda)" value={tn} onChange={e => setTn(e.target.value)} />
         <input placeholder="Posiciones separadas por coma: Bajo, Batería, Voz" value={tp} onChange={e => setTp(e.target.value)} /><button>Agregar equipo</button></form>
       {teams.map(x => <div className="row" key={x.id}><strong>{x.nombre}</strong><small>{(x.posiciones || []).join(', ')}</small>
-        <button className="peligro sm" onClick={() => confirm('¿Eliminar este equipo?') && deleteDoc(doc(db, 'churches', cid, 'teams', x.id))}>✕</button></div>)}
-    </details>
-    <form onSubmit={create} hidden={ro}><h2>Nuevo plan</h2>
+        <button className="peligro sm" onClick={() => confirm('¿Eliminar este equipo?') && deleteDoc(doc(db, 'churches', cid, 'teams', x.id))}>✕</button></div>)}</div>}
+    {adding && !ro && <form onSubmit={create}><h2 style={{ marginTop: 0 }}>Nuevo plan</h2>
       <select required value={f.tipo} onChange={e => setF({ ...f, tipo: e.target.value })} style={{ width: '100%', marginBottom: 8 }}><option value="">Tipo de servicio</option>{types.map(x => <option key={x.id}>{x.nombre}</option>)}</select>
       <input required placeholder="Título (ej. Culto domingo)" value={f.titulo} onChange={e => setF({ ...f, titulo: e.target.value })} />
-      <input required type="date" value={f.fecha} onChange={e => setF({ ...f, fecha: e.target.value })} />
-      <button>Crear plan</button></form>
-    <h2>Planes ({shown.length})</h2>
-    <div className="row"><select value={flt} onChange={e => setFlt(e.target.value)}><option value="">Todos los tipos</option>{types.map(x => <option key={x.id}>{x.nombre}</option>)}</select>
-      <label><input type="checkbox" style={{ width: 'auto', margin: '0 6px 0 0' }} checked={past} onChange={e => setPast(e.target.checked)} />Ver pasados</label></div>
-    {!shown.length && <p className="vacio">No hay planes para mostrar.</p>}
-    {shown.map(p => <div key={p.id}>
-      <div className="card"><b onClick={() => setSel(sel === p.id ? null : p.id)}>{p.titulo} {p.tipo && <span className="pill">{p.tipo}</span>} <small>{p.fecha}</small></b></div>
-      {sel === p.id && <Plan cid={cid} plan={p} songs={songs} teams={teams} ro={ro} />}
-    </div>)}
+      <input required type="date" value={f.fecha} onChange={e => setF({ ...f, fecha: e.target.value })} /><button>Crear plan</button></form>}
+    <div className="split">
+      <aside>
+        <div className="calhead"><b style={{ textTransform: 'capitalize' }}>{mes.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })}</b>
+          <span><button className="ghost sm" onClick={() => setMes(new Date(y, mo - 1, 1))}>‹</button><button className="ghost sm" onClick={() => setMes(new Date(y, mo + 1, 1))}>›</button></span></div>
+        <div className="cal">{['D', 'L', 'M', 'M', 'J', 'V', 'S'].map((d, i) => <i key={i} className="dow">{d}</i>)}
+          {cells.map((d, i) => d ? <button key={i} className={'day' + (plans.some(p => p.fecha === ds(d)) ? ' has' : '') + (ds(d) === hoy ? ' today' : '') + (day === ds(d) ? ' sel' : '')} onClick={() => setDay(day === ds(d) ? '' : ds(d))}>{d}</button> : <i key={i} />)}</div>
+        <h2>{day ? 'Servicios del ' + day : 'Próximos servicios'}</h2>
+        {!prox.length && <p className="vacio">Sin servicios.</p>}
+        {prox.map(p => <button className="up" key={p.id} onClick={() => setSel(p.id)}><b style={{ display: 'inline' }}>{p.titulo}</b><small>{p.fecha} · {p.tipo}</small></button>)}
+      </aside>
+      <section>
+        <div className="calhead"><h2 style={{ margin: 0 }}>Tipos de servicio</h2><label><input type="checkbox" style={{ width: 'auto', margin: '0 6px 0 0' }} checked={past} onChange={e => setPast(e.target.checked)} />Ver pasados</label></div>
+        {!types.length && <p className="vacio">Aún no hay tipos de servicio. Crea el primero en “Ajustes”.</p>}
+        {types.map(x => { const ps = plans.filter(p => p.tipo === x.nombre && (past || p.fecha >= hoy)); return <div className="acc" key={x.id}>
+          <button className="acch" onClick={() => setOpen(open === x.id ? '' : x.id)}><span>{open === x.id ? '▾' : '▸'} {x.nombre}</span><small>{ps.length}</small></button>
+          {open === x.id && (ps.length ? ps.map(p => <button className="up" key={p.id} onClick={() => setSel(p.id)}>{p.fecha} — {p.titulo}</button>) : <p className="vacio">Sin planes.</p>)}</div> })}
+      </section>
+    </div>
   </>
 }

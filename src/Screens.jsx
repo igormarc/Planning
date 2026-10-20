@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, sendPasswordResetEmail, updateProfile, signOut } from 'firebase/auth'
 import { collection, doc, writeBatch, onSnapshot, deleteDoc, updateDoc, addDoc, query, where } from 'firebase/firestore'
 import { auth, provider, db } from './firebase'
+import { Logo } from './Logo'
 
 const MSG = {
   'auth/invalid-credential': 'Correo o contraseña incorrectos.', 'auth/email-already-in-use': 'Ese correo ya tiene cuenta.',
@@ -22,10 +23,9 @@ export function Auth() {
   }) }
   const forgot = () => f.email ? run(async () => { await sendPasswordResetEmail(auth, f.email); setMsg('Te enviamos un correo para crear una nueva contraseña.') }) : setMsg('Escribe tu correo primero.')
   return <div className="auth">
-    <section className="brand"><h1>♪ Servicios</h1><p>Planifica cada culto, ordena el repertorio y coordina a tu equipo en un solo lugar.</p>
-      <ul><li>Orden del servicio en minutos</li><li>Acordes con cambio de tono</li><li>Funciona sin internet</li><li>Accesos distintos para cada persona</li></ul></section>
+    <section className="left"><div className="lg"><Logo s={40} /></div>
     <form className="panel" onSubmit={submit}>
-      <h2>{up ? 'Crea tu cuenta' : 'Bienvenido de nuevo'}</h2>
+      <h2>{up ? 'Crea tu cuenta' : 'Iniciar sesión'}</h2>
       {up && <input required placeholder="Tu nombre" autoComplete="name" value={f.nombre} onChange={set('nombre')} />}
       <input required type="email" placeholder="Correo" autoComplete="email" value={f.email} onChange={set('email')} />
       <input required type="password" minLength={6} placeholder={up ? 'Crea tu contraseña (mín. 6)' : 'Contraseña'} autoComplete={up ? 'new-password' : 'current-password'} value={f.pass} onChange={set('pass')} />
@@ -35,6 +35,8 @@ export function Auth() {
       {!up && <button type="button" className="link" onClick={forgot}>Olvidé mi contraseña</button>}
       <button type="button" className="link" onClick={() => { setMode(up ? 'in' : 'up'); setMsg('') }}>{up ? '¿Ya tienes cuenta? Ingresa' : '¿No tienes cuenta? Regístrate'}</button>
     </form>
+    <small className="foot">ConfigBand · Planificación de servicios para tu iglesia</small></section>
+    <aside className="art" aria-hidden="true"><i /><i /><i /><i /></aside>
   </div>
 }
 
@@ -62,25 +64,23 @@ export function Join({ u, onDone }) {
   </div>
 }
 
-const Lv = ({ v, on }) => <select value={v || 'ninguno'} onChange={e => on(e.target.value)}><option value="ninguno">Sin acceso</option><option value="ver">Solo ver</option><option value="editar">Ver y editar</option></select>
+const NIVELES = { ninguno: 'Sin acceso', ver: 'Viewer', editar: 'Editor', admin: 'Administrator' }
+const nivel = m => m.rol === 'admin' ? 'admin' : (m.planes === 'editar' || m.canciones === 'editar') ? 'editar' : (m.planes === 'ver' || m.canciones === 'ver') ? 'ver' : 'ninguno'
 
-export function Team({ cid }) {
+export function Team({ cid, uid }) {
   const [rows, setRows] = useState([])
   useEffect(() => onSnapshot(collection(db, 'churches', cid, 'members'), s => setRows(s.docs.map(d => ({ id: d.id, ...d.data() })))), [cid])
   const set = (id, d) => updateDoc(doc(db, 'churches', cid, 'members', id), d)
+  const setNivel = (m, v) => set(m.id, v === 'admin' ? { rol: 'admin', canciones: 'editar', planes: 'editar' } : { rol: 'miembro', canciones: v, planes: v })
   return <>
+    <div className="pagehead"><h1>Personas</h1></div>
     <div className="card"><small>Código de invitación</small><div className="big">{cid}</div><small>Compártelo: cada persona se registra con su propia contraseña, ingresa este código y tú apruebas su acceso.</small></div>
-    <h2>Personas ({rows.length})</h2>
-    {rows.map(m => <div className="card" key={m.id}>
-      <b>{m.nombre || m.email}{m.rol === 'pendiente' && <span className="tag">Pendiente</span>}{m.rol === 'admin' && <span className="tag ok">Admin</span>}</b><small>{m.email}</small>
-      {m.rol !== 'admin' && <>
-        <div className="row"><label>Canciones<Lv v={m.canciones} on={v => set(m.id, { canciones: v })} /></label><label>Planes<Lv v={m.planes} on={v => set(m.id, { planes: v })} /></label></div>
-        <div className="row">
-          {m.rol === 'pendiente' && <button onClick={() => set(m.id, { rol: 'miembro', canciones: m.canciones === 'ninguno' ? 'ver' : m.canciones, planes: m.planes === 'ninguno' ? 'ver' : m.planes })}>Aprobar</button>}
-          <button className="peligro" onClick={() => confirm('¿Quitar a esta persona?') && deleteDoc(doc(db, 'churches', cid, 'members', m.id))}>Quitar</button>
-        </div>
-      </>}
-    </div>)}
+    <div className="tw"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Permisos</th><th></th></tr></thead><tbody>
+      {rows.map(m => <tr key={m.id}><td>{m.nombre || '—'}</td><td>{m.email}</td>
+        <td>{m.rol === 'pendiente' ? <span className="tag">Pendiente</span> : <select disabled={m.id === uid} value={nivel(m)} onChange={e => setNivel(m, e.target.value)}>{Object.entries(NIVELES).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>}</td>
+        <td>{m.rol === 'pendiente' && <button className="sm" onClick={() => setNivel(m, 'ver')}>Aprobar</button>}
+          {m.id !== uid && <button className="peligro sm" onClick={() => confirm('¿Quitar a esta persona?') && deleteDoc(doc(db, 'churches', cid, 'members', m.id))}>Quitar</button>}</td></tr>)}
+    </tbody></table></div>
   </>
 }
 
