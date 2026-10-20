@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, sendPasswordResetEmail, updateProfile, signOut } from 'firebase/auth'
-import { collection, doc, writeBatch, onSnapshot, deleteDoc, updateDoc } from 'firebase/firestore'
+import { collection, doc, writeBatch, onSnapshot, deleteDoc, updateDoc, addDoc, query, where } from 'firebase/firestore'
 import { auth, provider, db } from './firebase'
 
 const MSG = {
@@ -81,5 +81,66 @@ export function Team({ cid }) {
         </div>
       </>}
     </div>)}
+  </>
+}
+
+const estTag = e => <span className={'tag ' + (e === 'aceptado' ? 'ok' : e === 'rechazado' ? 'bad' : '')}>{e}</span>
+const mapDocs = s => s.docs.map(d => ({ id: d.id, ...d.data() }))
+
+export function Asign({ cid, plan, ro }) {
+  const [list, setList] = useState([]), [ms, setMs] = useState([]), [bl, setBl] = useState([]), [uid, setUid] = useState(''), [pos, setPos] = useState('')
+  const col = n => collection(db, 'churches', cid, n)
+  useEffect(() => onSnapshot(query(col('assignments'), where('planId', '==', plan.id)), s => setList(mapDocs(s)), () => { }), [cid, plan.id])
+  useEffect(() => {
+    if (ro) return
+    const a = onSnapshot(col('members'), s => setMs(mapDocs(s).filter(m => m.rol !== 'pendiente')), () => { })
+    const b = onSnapshot(query(col('blockouts'), where('fecha', '==', plan.fecha)), s => setBl(mapDocs(s)), () => { })
+    return () => { a(); b() }
+  }, [cid, plan.fecha, ro])
+  const add = async () => {
+    const m = ms.find(x => x.id === uid)
+    if (!m || !pos.trim()) return
+    if (bl.some(b => b.uid === uid) && !confirm((m.nombre || m.email) + ' marcó que no está disponible ese día. ¿Asignar igual?')) return
+    await addDoc(col('assignments'), { planId: plan.id, planTitulo: plan.titulo, fecha: plan.fecha, uid, nombre: m.nombre || m.email, posicion: pos.trim(), estado: 'pendiente' })
+    setPos('')
+  }
+  const share = () => {
+    const txt = '*' + plan.titulo + '* (' + plan.fecha + ')\n' + (plan.items || []).map((it, i) => (i + 1) + '. ' + it.label + (it.tono ? ' (' + it.tono + ')' : '')).join('\n') + '\n\nEquipo:\n' + list.map(a => '• ' + a.nombre + ': ' + a.posicion).join('\n')
+    window.open('https://wa.me/?text=' + encodeURIComponent(txt))
+  }
+  return <>
+    <h2>Equipo del servicio</h2>
+    {!list.length && <p className="vacio">Nadie asignado todavía.</p>}
+    {list.map(a => <div className="row" key={a.id}><span><b style={{ display: 'inline' }}>{a.nombre}</b> · {a.posicion} {estTag(a.estado)}</span>
+      <button className="peligro sm" hidden={ro} onClick={() => deleteDoc(doc(db, 'churches', cid, 'assignments', a.id))}>Quitar</button></div>)}
+    <div className="row" hidden={ro}>
+      <select value={uid} onChange={e => setUid(e.target.value)}><option value="">Persona</option>{ms.map(m => <option key={m.id} value={m.id}>{m.nombre || m.email}</option>)}</select>
+      <input style={{ width: 150, margin: 0 }} placeholder="Posición (Voz, Guitarra…)" value={pos} onChange={e => setPos(e.target.value)} />
+      <button onClick={add}>Asignar</button>
+    </div>
+    <div className="row"><button className="ghost" onClick={share}>Compartir por WhatsApp</button></div>
+  </>
+}
+
+export function Agenda({ cid, uid }) {
+  const [as, setAs] = useState([]), [bl, setBl] = useState([]), [f, setF] = useState('')
+  const col = n => collection(db, 'churches', cid, n)
+  useEffect(() => {
+    const a = onSnapshot(query(col('assignments'), where('uid', '==', uid)), s => setAs(mapDocs(s)), () => { })
+    const b = onSnapshot(query(col('blockouts'), where('uid', '==', uid)), s => setBl(mapDocs(s)), () => { })
+    return () => { a(); b() }
+  }, [cid, uid])
+  const hoy = new Date().toISOString().slice(0, 10)
+  const prox = as.filter(a => a.fecha >= hoy).sort((a, b) => a.fecha.localeCompare(b.fecha))
+  const resp = (id, estado) => updateDoc(doc(db, 'churches', cid, 'assignments', id), { estado })
+  return <>
+    <h2>Mis próximos servicios</h2>
+    {!prox.length && <p className="vacio">No tienes servicios asignados por ahora.</p>}
+    {prox.map(a => <div className="card" key={a.id}><b>{a.planTitulo} <small>{a.fecha}</small></b><span>{a.posicion} {estTag(a.estado)}</span>
+      <div className="row"><button disabled={a.estado === 'aceptado'} onClick={() => resp(a.id, 'aceptado')}>Aceptar</button><button className="peligro" disabled={a.estado === 'rechazado'} onClick={() => resp(a.id, 'rechazado')}>No puedo</button></div></div>)}
+    <h2>Días en que no estoy disponible</h2>
+    <form onSubmit={async e => { e.preventDefault(); await addDoc(col('blockouts'), { uid, fecha: f }); setF('') }}>
+      <input required type="date" value={f} onChange={e => setF(e.target.value)} /><button>Marcar no disponible</button></form>
+    {[...bl].sort((a, b) => a.fecha.localeCompare(b.fecha)).map(b => <div className="card row" key={b.id}>{b.fecha}<button className="ghost sm" onClick={() => deleteDoc(doc(db, 'churches', cid, 'blockouts', b.id))}>Quitar</button></div>)}
   </>
 }

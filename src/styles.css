@@ -25,3 +25,4 @@ pre{white-space:pre-wrap;font:15px/1.7 ui-monospace,Consolas,monospace;backgroun
 .auth .panel{align-self:center;width:100%;max-width:400px;margin:0 auto;border:0;background:none;padding:28px}
 .msg{background:#fde8e6;color:var(--bad);padding:8px 12px;border-radius:8px}
 @media(min-width:800px){.auth{grid-template-columns:1fr 1fr}.brand{display:flex;flex-direction:column;justify-content:center;padding:64px}}
+.tag.bad{background:#fde8e6;color:#b42318}

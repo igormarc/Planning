@@ -3,7 +3,7 @@ import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
 import { collection, doc, getDoc, onSnapshot, query, orderBy, addDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore'
 import { auth, provider, db } from './firebase'
 import { transpose } from './transpose'
-import { Auth, Join, Team } from './Screens'
+import { Auth, Join, Team, Asign, Agenda } from './Screens'
 
 function useCol(cid, name, order) {
   const [rows, setRows] = useState([])
@@ -69,6 +69,7 @@ function Plan({ cid, plan, songs, ro }) {
         : <input placeholder="Texto del ítem" value={txt} onChange={e => setTxt(e.target.value)} />}
       <button onClick={add}>Agregar ítem</button>
     </div>
+    <Asign cid={cid} plan={plan} ro={ro} />
     <button className="peligro" hidden={ro} onClick={() => confirm('¿Eliminar este plan?') && deleteDoc(doc(db, 'churches', cid, 'plans', plan.id))}>Eliminar plan</button>
   </div>
 }
@@ -92,7 +93,7 @@ function Plans({ cid, ro }) {
 }
 
 export default function App() {
-  const [u, setU] = useState(null), [cid, setCid] = useState(null), [me, setMe] = useState(null), [ready, setReady] = useState(false), [tab, setTab] = useState('plans')
+  const [u, setU] = useState(null), [cid, setCid] = useState(null), [me, setMe] = useState(null), [ready, setReady] = useState(false), [tab, setTab] = useState('agenda')
   useEffect(() => onAuthStateChanged(auth, async x => {
     setU(x); setMe(null); setCid(null)
     if (x) { try { setCid((await getDoc(doc(db, 'users', x.uid))).data()?.churchId || null) } catch { } }
@@ -105,7 +106,7 @@ export default function App() {
   if (!cid) return <Join u={u} onDone={setCid} />
   if (!me || me.rol === 'pendiente') return <div className="wrap center"><div className="card"><h2>Solicitud enviada</h2><p>El administrador debe aprobar tu acceso. Vuelve a entrar más tarde. Si te equivocaste de código, usa otro.</p><button onClick={reset}>Usar otro código</button></div><button className="link" onClick={() => signOut(auth)}>Salir</button></div>
   const adm = me.rol === 'admin', sv = adm || me.canciones !== 'ninguno', pl = adm || me.planes !== 'ninguno'
-  const tabs = [pl && ['plans', 'Planes'], sv && ['songs', 'Canciones'], adm && ['team', 'Equipo']].filter(Boolean)
+  const tabs = [['agenda', 'Mi agenda'], pl && ['plans', 'Planes'], sv && ['songs', 'Canciones'], adm && ['team', 'Equipo']].filter(Boolean)
   const t = tabs.find(x => x[0] === tab) ? tab : tabs[0]?.[0]
   return <>
     <header className="top"><b className="logo">♪ Servicios</b><span><small>{u.displayName || u.email}</small><button className="ghost sm" onClick={() => signOut(auth)}>Salir</button></span></header>
@@ -115,6 +116,7 @@ export default function App() {
       {t === 'plans' && <Plans cid={cid} ro={!(adm || me.planes === 'editar')} />}
       {t === 'songs' && <Songs cid={cid} ro={!(adm || me.canciones === 'editar')} />}
       {t === 'team' && <Team cid={cid} />}
+      {t === 'agenda' && <Agenda cid={cid} uid={u.uid} />}
     </main>
   </>
 }
