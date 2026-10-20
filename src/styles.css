@@ -26,3 +26,10 @@ pre{white-space:pre-wrap;font:15px/1.7 ui-monospace,Consolas,monospace;backgroun
 .msg{background:#fde8e6;color:var(--bad);padding:8px 12px;border-radius:8px}
 @media(min-width:800px){.auth{grid-template-columns:1fr 1fr}.brand{display:flex;flex-direction:column;justify-content:center;padding:64px}}
 .tag.bad{background:#fde8e6;color:#b42318}
+.pill{display:inline-block;background:#dbeafe;color:#1e3a8a;border:0;border-radius:99px;padding:0 10px;min-height:0;margin:0 6px;font-size:.8rem;font-weight:700}
+li.head{background:#eef1f5;font-weight:700;padding:6px 8px;border-radius:6px;margin-top:6px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:10px 0}
+.col{border:1px solid var(--line);border-radius:10px;overflow:hidden}.col h3{margin:0;padding:10px 12px 0;font-size:1rem}.col>small{display:block;padding:0 12px 8px}
+.pos{background:#eef1f5;padding:4px 12px;font-weight:600;font-size:.85rem}.who{display:flex;justify-content:space-between;align-items:center;padding:4px 12px}
+.est{font-weight:700;margin-right:6px}.est.aceptado{color:#15803d}.est.rechazado{color:var(--bad)}.est.pendiente{color:#b45309}
+summary{cursor:pointer;font-weight:600;margin:12px 0}

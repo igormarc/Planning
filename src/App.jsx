@@ -3,7 +3,8 @@ import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
 import { collection, doc, getDoc, onSnapshot, query, orderBy, addDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore'
 import { auth, provider, db } from './firebase'
 import { transpose } from './transpose'
-import { Auth, Join, Team, Asign, Agenda } from './Screens'
+import { Auth, Join, Team, Agenda } from './Screens'
+import { Plans } from './Plans'
 
 function useCol(cid, name, order) {
   const [rows, setRows] = useState([])
@@ -14,26 +15,29 @@ function useCol(cid, name, order) {
 
 function Songs({ cid, ro }) {
   const songs = useCol(cid, 'songs', 'titulo')
-  const [sel, setSel] = useState(null), [f, setF] = useState({ titulo: '', tono: '', letra: '' })
-  const [n, setN] = useState(0), [flat, setFlat] = useState(false)
+  const [sel, setSel] = useState(null), [f, setF] = useState({ titulo: '', tono: '', bpm: '', dur: '', letra: '' })
+  const [n, setN] = useState(0), [flat, setFlat] = useState(false), [q, setQ] = useState('')
   const save = async e => {
     e.preventDefault()
-    if (f.id) await updateDoc(doc(db, 'churches', cid, 'songs', f.id), { titulo: f.titulo, tono: f.tono, letra: f.letra })
-    else await addDoc(collection(db, 'churches', cid, 'songs'), { titulo: f.titulo, tono: f.tono, letra: f.letra })
-    setF({ titulo: '', tono: '', letra: '' })
+    if (f.id) await updateDoc(doc(db, 'churches', cid, 'songs', f.id), { titulo: f.titulo, tono: f.tono, bpm: f.bpm || '', dur: f.dur || '', letra: f.letra })
+    else await addDoc(collection(db, 'churches', cid, 'songs'), { titulo: f.titulo, tono: f.tono, bpm: f.bpm || '', dur: f.dur || '', letra: f.letra })
+    setF({ titulo: '', tono: '', bpm: '', dur: '', letra: '' })
   }
   return <>
     <form onSubmit={save} hidden={ro}>
       <h2>{f.id ? 'Editar canción' : 'Nueva canción'}</h2>
       <input required placeholder="Título" value={f.titulo} onChange={e => setF({ ...f, titulo: e.target.value })} />
       <input placeholder="Tono (ej. G)" value={f.tono} onChange={e => setF({ ...f, tono: e.target.value })} />
+      <input placeholder="BPM" value={f.bpm || ''} onChange={e => setF({ ...f, bpm: e.target.value })} />
+      <input placeholder="Duración (m:ss)" value={f.dur || ''} onChange={e => setF({ ...f, dur: e.target.value })} />
       <textarea rows="8" placeholder="Letra con acordes entre corchetes: [G]Grande es [C]Dios" value={f.letra} onChange={e => setF({ ...f, letra: e.target.value })} />
       <button>Guardar canción</button>
     </form>
     <h2>Canciones ({songs.length})</h2>
+    <input placeholder="Buscar canción…" value={q} onChange={e => setQ(e.target.value)} />
     {!songs.length && <p className="vacio">Aún no hay canciones. Agrega la primera arriba.</p>}
-    {songs.map(s => <div className="card" key={s.id}>
-      <b onClick={() => { setSel(sel === s.id ? null : s.id); setN(0) }}>{s.titulo} <small>{s.tono}</small></b>
+    {songs.filter(s => (s.titulo || '').toLowerCase().includes(q.toLowerCase())).map(s => <div className="card" key={s.id}>
+      <b onClick={() => { setSel(sel === s.id ? null : s.id); setN(0) }}>{s.titulo} <small>{s.tono}{s.bpm ? ' · ' + s.bpm + ' bpm' : ''}{s.dur ? ' · ' + s.dur : ''}</small></b>
       {sel === s.id && <>
         <div className="row">
           <button onClick={() => setN(n - 1)}>−1 tono</button><button onClick={() => setN(n + 1)}>+1 tono</button>
@@ -43,51 +47,6 @@ function Songs({ cid, ro }) {
         <div className="row" hidden={ro}><button onClick={() => { setF(s); window.scrollTo(0, 0) }}>Editar</button>
           <button className="peligro" onClick={() => confirm('¿Eliminar esta canción?') && deleteDoc(doc(db, 'churches', cid, 'songs', s.id))}>Eliminar</button></div>
       </>}
-    </div>)}
-  </>
-}
-
-function Plan({ cid, plan, songs, ro }) {
-  const items = plan.items || []
-  const [t, setT] = useState('song'), [txt, setTxt] = useState(''), [sid, setSid] = useState('')
-  const put = arr => updateDoc(doc(db, 'churches', cid, 'plans', plan.id), { items: arr })
-  const add = () => {
-    const s = songs.find(x => x.id === sid)
-    const it = t === 'song' ? s && { t, label: s.titulo, tono: s.tono } : txt && { t, label: txt }
-    if (it) { put([...items, it]); setTxt('') }
-  }
-  const mv = (i, d) => { const a = [...items]; const j = i + d; if (j < 0 || j >= a.length) return;[a[i], a[j]] = [a[j], a[i]]; put(a) }
-  return <div className="card">
-    <ol>{items.map((it, i) => <li key={i}>
-      <span>{it.t === 'song' ? '♪ ' : ''}{it.label} {it.tono && <small>({it.tono})</small>}</span>
-      <span hidden={ro}><button onClick={() => mv(i, -1)}>↑</button><button onClick={() => mv(i, 1)}>↓</button><button className="peligro" onClick={() => put(items.filter((_, k) => k !== i))}>✕</button></span>
-    </li>)}</ol>
-    {!items.length && <p className="vacio">Plan vacío. Agrega canciones o ítems.</p>}
-    <div className="row" hidden={ro}>
-      <select value={t} onChange={e => setT(e.target.value)}><option value="song">Canción</option><option value="head">Encabezado</option><option value="read">Lectura</option><option value="ann">Anuncio</option></select>
-      {t === 'song' ? <select value={sid} onChange={e => setSid(e.target.value)}><option value="">Elige canción</option>{songs.map(s => <option key={s.id} value={s.id}>{s.titulo}</option>)}</select>
-        : <input placeholder="Texto del ítem" value={txt} onChange={e => setTxt(e.target.value)} />}
-      <button onClick={add}>Agregar ítem</button>
-    </div>
-    <Asign cid={cid} plan={plan} ro={ro} />
-    <button className="peligro" hidden={ro} onClick={() => confirm('¿Eliminar este plan?') && deleteDoc(doc(db, 'churches', cid, 'plans', plan.id))}>Eliminar plan</button>
-  </div>
-}
-
-function Plans({ cid, ro }) {
-  const plans = useCol(cid, 'plans', 'fecha'), songs = useCol(cid, 'songs', 'titulo')
-  const [f, setF] = useState({ titulo: '', fecha: '' }), [sel, setSel] = useState(null)
-  const create = async e => { e.preventDefault(); await addDoc(collection(db, 'churches', cid, 'plans'), { ...f, items: [] }); setF({ titulo: '', fecha: '' }) }
-  return <>
-    <form onSubmit={create} hidden={ro}><h2>Nuevo plan</h2>
-      <input required placeholder="Título (ej. Culto domingo)" value={f.titulo} onChange={e => setF({ ...f, titulo: e.target.value })} />
-      <input required type="date" value={f.fecha} onChange={e => setF({ ...f, fecha: e.target.value })} />
-      <button>Crear plan</button></form>
-    <h2>Planes ({plans.length})</h2>
-    {!plans.length && <p className="vacio">Aún no hay planes. Crea el primero arriba.</p>}
-    {plans.map(p => <div key={p.id}>
-      <div className="card"><b onClick={() => setSel(sel === p.id ? null : p.id)}>{p.titulo} <small>{p.fecha}</small></b></div>
-      {sel === p.id && <Plan cid={cid} plan={p} songs={songs} ro={ro} />}
     </div>)}
   </>
 }
