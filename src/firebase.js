@@ -1,18 +1,20 @@
 import { initializeApp, getApps } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
+import { firebaseConfig } from './firebase-config'
 
-const config = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-}
+// La configuración web se completa en src/firebase-config.js.
+// Estos valores identifican el proyecto; la seguridad real depende de Authentication
+// y de las reglas de Firestore. No pongas aquí contraseñas ni claves privadas.
+const config = Object.fromEntries(
+  Object.entries(firebaseConfig).map(([key, value]) => [key, String(value || '').trim()])
+)
 
-const requiredConfig = [config.apiKey, config.authDomain, config.projectId, config.appId].map(value => String(value || '').trim())
-const placeholders = new Set(['tu_api_key', 'tu-proyecto.firebaseapp.com', 'tu-proyecto', 'tu_app_id'])
-export const firebaseConfigured = requiredConfig.every(Boolean) && !requiredConfig.some(value => placeholders.has(value))
-export const firebaseApp = firebaseConfigured ? (getApps().length ? getApps()[0] : initializeApp(config)) : null
+const requiredKeys = ['apiKey', 'authDomain', 'projectId', 'messagingSenderId', 'appId']
+export const missingFirebaseConfig = requiredKeys.filter(key => !config[key])
+export const firebaseConfigured = missingFirebaseConfig.length === 0
+export const firebaseApp = firebaseConfigured
+  ? (getApps().length ? getApps()[0] : initializeApp(config))
+  : null
 export const auth = firebaseApp ? getAuth(firebaseApp) : null
 export const db = firebaseApp ? getFirestore(firebaseApp) : null

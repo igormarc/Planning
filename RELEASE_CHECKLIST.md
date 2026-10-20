@@ -1,31 +1,25 @@
-# Lista de salida a producción — Alabanza
+# Lista de comprobación antes del lanzamiento
 
-Esta lista debe completarse después de conectar las variables reales de Firebase y publicar las reglas en el proyecto correcto.
+## Configuración
+- [ ] `src/firebase-config.js` contiene los cinco valores reales de la app web Firebase.
+- [ ] El correo administrador existe en Firebase Authentication.
+- [ ] Existe el documento de perfil en `people` y un documento `memberAccess` cuyo ID es el correo en minúsculas.
+- [ ] Los campos `personId`, `role` y `active` coinciden con el perfil.
+- [ ] Authentication tiene habilitado Email/Password y el dominio de Netlify está autorizado en los dominios autorizados.
+- [ ] Las reglas de Firestore han sido revisadas para el proyecto concreto antes de publicarse.
 
-## Firebase y primer acceso
+## Despliegue
+- [ ] GitHub contiene el archivo `src/firebase-config.js` actualizado.
+- [ ] Netlify está conectado al repositorio y a la rama correctos.
+- [ ] El último despliegue terminó en estado `Published`.
+- [ ] El sitio ya no muestra la pantalla de configuración inicial.
 
-- [ ] Habilitar Email/Password en Firebase Authentication.
-- [ ] Habilitar Google si se usará para el administrador.
-- [ ] Autorizar el dominio de Netlify y el dominio personalizado en Firebase Authentication.
-- [ ] Crear Firestore y revisar las reglas antes de publicarlas.
-- [ ] Crear la primera cuenta de administrador y los documentos `people/{personId}` y `memberAccess/{correo-en-minúsculas}` siguiendo README.md.
-- [ ] Añadir las cinco variables `VITE_FIREBASE_*` a Netlify y ejecutar un nuevo deploy.
+## Pruebas funcionales
+- [ ] El administrador puede iniciar sesión.
+- [ ] Un usuario sin perfil activo no puede consultar datos de la aplicación.
+- [ ] Un Visor solo consulta los servicios y canciones que tiene asignados.
+- [ ] Las respuestas de convocatoria se guardan y una declinación requiere motivo.
+- [ ] Crear/editar canciones y servicios persiste tras recargar la página.
+- [ ] La interfaz se revisó en un teléfono.
 
-## Pruebas funcionales con cuentas diferentes
-
-- [ ] Administrador: crear un tipo de servicio y programar uno para una fecha.
-- [ ] Administrador: crear una canción con letra/acordes y abrir ambas vistas imprimibles.
-- [ ] Administrador: enlazar un PDF externo y guardar su tonalidad.
-- [ ] Administrador: asignar varios integrantes por lote y abrir los mensajes preparados de WhatsApp/correo.
-- [ ] Visor: iniciar sesión y comprobar que solo aparecen sus convocatorias y canciones asociadas.
-- [ ] Visor: aceptar una convocatoria y comprobar que el administrador ve la respuesta.
-- [ ] Visor: intentar declinar sin motivo y comprobar que no puede enviarlo; escribir motivo y confirmar que el administrador lo ve.
-- [ ] Editor: probar la edición de un servicio y un equipo; verificar que no puede gestionar roles ni editar los detalles del repertorio.
-- [ ] Probar desde un teléfono los formularios, las tablas desplazables y las vistas de letras/acordes.
-- [ ] Confirmar que una sesión sin rol activo queda bloqueada y que los documentos de respuesta de otros integrantes no son legibles.
-
-## Límites deliberados
-
-- No se usa Firebase Storage. Los PDF que ya existen deben alojarse en Drive/OneDrive u otro repositorio accesible y guardarse como enlace + tonalidad.
-- Los PDF generados desde letras/acordes se preparan al abrirlos y se pueden imprimir/guardar desde el dispositivo; no se almacenan en Firebase.
-- WhatsApp y correo abren mensajes preparados. El administrador confirma el envío en la aplicación externa; no hay envío masivo automático ni cuota de mensajería de pago.
+No marques una prueba como completada hasta probarla en el sitio desplegado.

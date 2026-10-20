@@ -151,14 +151,14 @@ function FirebaseSetupScreen() {
     <span className="verification-icon"><ShieldCheck size={28}/></span>
     <div className="eyebrow">ALABANZA · CONFIGURACIÓN INICIAL</div>
     <h1>Conecta tu espacio de trabajo</h1>
-    <p>Esta versión no utiliza datos de demostración. Para activar la aplicación, conecta tu proyecto Firebase y configura las variables de entorno en Netlify.</p>
+    <p>La aplicación aún no tiene los datos de configuración de Firebase. Para activarla, completa el archivo <code>src/firebase-config.js</code> y publica el cambio en GitHub. No necesitas crear variables de entorno en Netlify.</p>
     <div className="setup-steps">
-      <div><span>1</span><p><strong>Firebase Authentication</strong><br/>Activa Email/Password y, para el administrador, Google si lo deseas.</p></div>
-      <div><span>2</span><p><strong>Firestore Database</strong><br/>Crea o selecciona la base de datos y revisa las reglas incluidas en <code>firestore.rules</code>.</p></div>
-      <div><span>3</span><p><strong>Variables en Netlify</strong><br/>Copia los valores de la app web Firebase para las variables <code>VITE_FIREBASE_*</code> que aparecen en <code>.env.example</code>.</p></div>
-      <div><span>4</span><p><strong>Primer administrador</strong><br/>Sigue la guía README para autorizar la primera cuenta y asignarle el rol Administrador.</p></div>
+      <div><span>1</span><p><strong>Firebase Authentication</strong><br/>En Firebase Console → Build → Authentication → Sign-in method, activa Email/Password. Activa Google solo si vas a usar ese método.</p></div>
+      <div><span>2</span><p><strong>Firestore Database</strong><br/>Conserva tu base de datos actual y revisa las reglas antes de publicarlas. No borres los documentos que ya creaste.</p></div>
+      <div><span>3</span><p><strong>Archivo de configuración</strong><br/>En GitHub abre <code>src/firebase-config.js</code> y pega los cinco valores de Firebase: <code>apiKey</code>, <code>authDomain</code>, <code>projectId</code>, <code>messagingSenderId</code> y <code>appId</code>.</p></div>
+      <div><span>4</span><p><strong>Publicar y probar</strong><br/>Guarda el archivo con Commit changes y espera a que Netlify publique el nuevo despliegue. Después inicia sesión con el correo registrado.</p></div>
     </div>
-    <p className="setup-note">No pegues contraseñas ni claves privadas en el código. La configuración web de Firebase usa valores de identificación del proyecto; protege la información mediante Authentication y reglas de Firestore.</p>
+    <p className="setup-note">No introduzcas contraseñas ni claves privadas en el archivo. La configuración de Firebase para una app web es visible en el navegador; los datos se protegen con Authentication y reglas correctas de Firestore.</p>
   </div></div>
 }
 
