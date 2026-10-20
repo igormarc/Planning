@@ -13,16 +13,24 @@ Aplicación web React + Vite creada desde cero a partir de las referencias visua
 - Roles Administrador, Editor y Visor, con reglas de Firestore incluidas para limitar lectura y escritura.
 - Al editar un integrante existente, el administrador puede enviarle un enlace por correo de Firebase para crear o restablecer su contraseña. El perfil de acceso se autoriza desde el panel de administración.
 
-## 1. Probar localmente sin credenciales
+## 1. Ejecutar la versión de producción
 
-Requisitos: Node.js 20 o superior.
+Requisitos: Node.js 20 o superior. Esta edición no carga datos ficticios ni ofrece un modo demo. Debes configurar Firebase antes de iniciar sesión o guardar información.
 
 ```bash
+cp .env.example .env.local
+# Edita .env.local con los datos de la app web de Firebase
 npm install
 npm run dev
 ```
 
-Abre la dirección local indicada por Vite. Sin variables de Firebase, la app funciona en modo de demostración y guarda cambios en el navegador actual. Los datos de ese modo no se sincronizan con otros dispositivos.
+Si falta la configuración, la página muestra las instrucciones iniciales en lugar de aparentar que los datos de prueba son reales. En Netlify, configura las mismas variables en **Site configuration → Environment variables** y vuelve a desplegar.
+
+### Qué está listo y qué requiere tu proyecto
+
+El paquete contiene la aplicación completa y su código fuente; no contiene una conexión ya autenticada a tu cuenta Firebase ni está publicado dentro de tu cuenta Netlify. Esos dos pasos requieren los valores y accesos de tu proyecto. La aplicación no muestra datos ficticios si la conexión falta.
+
+No hay carga directa de PDFs porque el proyecto no usa Firebase Storage. Los PDF existentes se enlazan desde Drive/OneDrive y las letras/acordes escritos se pueden abrir en una vista imprimible para guardar un PDF desde el dispositivo. Los avisos por correo de acceso usan Firebase Authentication; las convocatorias abren mensajes preparados en WhatsApp o correo para que el administrador los envíe manualmente.
 
 ## 2. Preparar Firebase sin Storage
 
@@ -40,7 +48,7 @@ Esta aplicación solo usa Firebase Authentication y Cloud Firestore. No importa 
 La primera cuenta debe autorizarse una vez desde Firebase Console, ya que nadie puede darse permisos de administrador desde la pantalla de acceso:
 
 1. Crea el usuario inicial en Authentication (con correo/contraseña) o inicia sesión con Google usando el correo que será administrador.
-2. En Firestore crea un documento en la colección `people`, con un ID propio, por ejemplo `admin-01`, y estos campos (ajusta nombre y correo):
+2. En Firestore crea un documento en la colección `people`, con un ID propio como `admin-01`, y estos campos (ajusta nombre y correo):
 
 ```json
 {
@@ -93,7 +101,7 @@ Cada integrante autorizado ve la convocatoria al entrar a la app, puede aceptar 
 - Build command: `npm run build`
 - Publish directory: `dist`
 - Configura las variables `VITE_FIREBASE_*` del archivo `.env.example` como variables de entorno en Netlify y vuelve a desplegar.
-- Comprueba el dominio autorizado en Firebase Authentication y prueba los tres roles con cuentas distintas antes de usarlo oficialmente.
+- Comprueba el dominio autorizado en Firebase Authentication y completa la lista `RELEASE_CHECKLIST.md` con cuentas distintas antes de usarlo oficialmente.
 
 ## Colecciones utilizadas
 

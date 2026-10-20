@@ -4235,3 +4235,33 @@ h3 { font-size: 16px; }
   .type-actions .icon-btn { width: 30px; }
   .viewer-service-head>.response-pill { margin-left: 0; }
 }
+
+/* Initial production setup screen: clear instructions when Firebase is not configured. */
+.setup-screen { padding: 24px 16px; }
+.setup-card { width: min(720px, 100%); max-width: 720px; }
+.setup-card > p { line-height: 1.65; }
+.setup-steps { display: grid; gap: 12px; margin: 22px 0; }
+.setup-steps > div { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: start; gap: 12px; padding: 14px; border: 1px solid #dcebe9; border-radius: 12px; background: #fbfefd; }
+.setup-steps > div > span { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #d9f5f1; color: #087f82; font-weight: 800; }
+.setup-steps p { margin: 0; color: #536c6b; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.setup-steps strong { color: #1a3534; font-size: 15px; }
+.setup-steps code { white-space: normal; overflow-wrap: anywhere; }
+.setup-note { padding-top: 14px; border-top: 1px solid #e4efee; font-size: 13px; color: #647b7a; }
+.settings-stat-line { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 13px 0; margin-top: 14px; border-top: 1px solid #e3edec; border-bottom: 1px solid #e3edec; color: #56706f; }
+.settings-stat-line strong { color: #153e3c; font-size: 19px; }
+@media (max-width: 520px) {
+  .setup-screen { padding: 12px; align-items: flex-start; }
+  .setup-card { padding: 22px 16px; }
+  .setup-card h1 { font-size: 25px; line-height: 1.2; }
+  .setup-steps > div { padding: 12px; grid-template-columns: 30px minmax(0, 1fr); gap: 9px; }
+  .setup-steps > div > span { width: 28px; height: 28px; }
+}
+
+.note-save-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+.note-save-row > span { color: #66817f; font-size: 12px; line-height: 1.45; }
+.note-save-row .btn { min-height: 38px; }
+@media (max-width: 520px) {
+  .note-save-row { align-items: stretch; }
+  .note-save-row > span { flex: 1 1 100%; }
+  .note-save-row .btn { width: 100%; }
+}

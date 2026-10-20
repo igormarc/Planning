@@ -10,7 +10,9 @@ const config = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 }
 
-export const firebaseConfigured = Boolean(config.apiKey && config.authDomain && config.projectId && config.appId)
+const requiredConfig = [config.apiKey, config.authDomain, config.projectId, config.appId].map(value => String(value || '').trim())
+const placeholders = new Set(['tu_api_key', 'tu-proyecto.firebaseapp.com', 'tu-proyecto', 'tu_app_id'])
+export const firebaseConfigured = requiredConfig.every(Boolean) && !requiredConfig.some(value => placeholders.has(value))
 export const firebaseApp = firebaseConfigured ? (getApps().length ? getApps()[0] : initializeApp(config)) : null
 export const auth = firebaseApp ? getAuth(firebaseApp) : null
 export const db = firebaseApp ? getFirestore(firebaseApp) : null
