@@ -126,6 +126,7 @@ function LoginScreen() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
   const submit = async (e) => {
     e.preventDefault(); setBusy(true); setMessage('')
     try { await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password) }
