@@ -4265,3 +4265,156 @@ h3 { font-size: 16px; }
   .note-save-row > span { flex: 1 1 100%; }
   .note-save-row .btn { width: 100%; }
 }
+
+/* PlanningBand visual refresh — gradient accents with high-contrast reading surfaces. */
+:root {
+  --ink: #111827;
+  --muted: #374151;
+  --line: #d9e4d3;
+  --paper: #ffffff;
+  --wash: #fbfff7;
+  --green: #187c36;
+  --green-dark: #14532d;
+  --green-soft: #eaffdf;
+  --blue: #167c3a;
+  --brand-yellow: #F2CF08;
+  --brand-lime: #E4FD02;
+  --brand-green: #33DD4E;
+  --brand-mint: #5DFA86;
+  --brand-gradient: linear-gradient(128deg, #F2CF08 0%, #E4FD02 30%, #33DD4E 66%, #5DFA86 100%);
+  --shadow: 0 10px 28px rgba(17, 24, 39, .075);
+}
+
+html, body {
+  color: #111827;
+  background: var(--brand-gradient) fixed;
+}
+body { background: var(--brand-gradient) fixed; }
+.app-frame {
+  color: #111827;
+  background: var(--brand-gradient) fixed;
+}
+.topbar {
+  background: rgba(255,255,255,.97);
+  border-bottom: 0;
+  box-shadow: 0 2px 14px rgba(17,24,39,.06);
+}
+.topbar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--brand-gradient);
+  pointer-events: none;
+}
+.sidebar {
+  background: rgba(255,255,255,.98);
+  border-right: 1px solid #cbdcc6;
+}
+.main-content { color: #111827; }
+.panel, .calendar-widget, .day-agenda, .calendar-list-large, .service-type-group,
+.assigned-team-card, .modal, .verification-card, .account-popover {
+  border-color: #d9e4d3;
+  box-shadow: var(--shadow);
+}
+
+/* The logo is an SVG file in public/, so it does not depend on remote image services. */
+.brand { color: #111827; gap: 10px; }
+.brand-mark {
+  background: var(--brand-gradient);
+  color: #111827;
+  border: 1px solid rgba(17,24,39,.22);
+  box-shadow: 0 2px 7px rgba(17,24,39,.12);
+  overflow: hidden;
+}
+.brand-mark img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.workspace-icon {
+  background: var(--brand-gradient);
+  color: #111827;
+  border: 1px solid rgba(17,24,39,.18);
+  padding: 2px;
+  overflow: hidden;
+}
+.workspace-icon img { display: block; width: 100%; height: 100%; object-fit: contain; }
+
+.btn.primary {
+  color: #111827;
+  border-color: #5fae41;
+  background: var(--brand-gradient);
+  box-shadow: 0 2px 7px rgba(48, 128, 46, .16);
+  font-weight: 800;
+}
+.btn.primary:hover { background: var(--brand-gradient); filter: saturate(1.08) brightness(.98); border-color: #318541; }
+.top-nav-item.active { background: #eaffdf; color: #111827; }
+.side-link.selected { background: #eaffdf; color: #111827; }
+.side-link.selected svg { color: #166534; }
+.workspace-switch strong { color: #111827; }
+.type-expand:focus-visible, .type-main:focus-visible, .side-link:focus-visible { outline-color: #166534; }
+
+/* The specified Smooth Gradient is used as a backdrop and as an accent, not as text fill.
+   Working surfaces remain opaque so the words and controls stay legible. */
+.login-shell { background: #ffffff; }
+.login-art {
+  color: #111827;
+  background: var(--brand-gradient);
+}
+.art-orbit { border-color: rgba(17,24,39,.18); }
+.art-kicker, .art-main h2 em, .art-main p, .art-quote { color: #26332a; }
+.art-note { color: #111827; border-color: rgba(17,24,39,.1); }
+.art-note-icon { background: #ffffff; color: #14532d; }
+.art-note>svg { color: #166534; }
+.art-dots i, .art-dots i:first-child { background: #166534; }
+.login-form-wrap>.muted, .login-footnote, .login-footer { color: #374151; }
+.login-form label, .modal-form label, .field-label { color: #111827; }
+.input-icon { color: #374151; }
+.verification-screen { background: var(--brand-gradient); }
+.verification-card { color: #111827; }
+.verification-card p { color: #374151; }
+.setup-steps > div { background: #ffffff; border-color: #cbdcc6; }
+.setup-steps > div > span { background: #eaffdf; color: #14532d; }
+.setup-steps p { color: #374151; }
+.setup-steps strong { color: #111827; }
+.setup-note { color: #374151; }
+
+/* Strengthen foreground contrast throughout the authenticated interface. */
+.app-frame :is(h1,h2,h3,strong,th,td) { color: #111827; }
+.app-frame :is(p,small,label,li,dt,dd,.muted,.eyebrow,.context-strip,.detail-meta,
+  .detail-breadcrumb,.sidebar-label,.workspace-switch small,.sidebar-user small,
+  .page-heading p,.section-title span,.help-card p,.team-hint,.notification-note,
+  .calendar-weekdays span,.no-event,.upcoming-info span,.assigned-member small,
+  .member-empty,.assign-picker label,.file-empty,.file-empty span,.file-empty small,
+  .autosave,.count-pill,.account-popover-head span,.search-shortcut,.calendar-day,
+  .service-tabs button,.settings-stat-line,.note-save-row > span) {
+  color: #374151 !important;
+}
+.app-frame .side-link { color: #27352a; }
+.app-frame .side-link svg { color: #4b5563; }
+.app-frame .top-nav-item { color: #374151; }
+.app-frame .top-nav-item.active { color: #111827; }
+.app-frame .link-btn, .app-frame .text-link, .app-frame .help-card button { color: #14532d; }
+.app-frame .icon-btn { color: #374151; }
+.app-frame .service-tabs button.active { color: #14532d; border-bottom-color: #33DD4E; }
+.app-frame .detail-breadcrumb button { color: #14532d; }
+.app-frame .btn:not(.primary) { color: #111827; }
+.app-frame .btn.primary { color: #111827; }
+.app-frame input, .app-frame select, .app-frame textarea,
+.login-shell input, .login-shell select, .login-shell textarea {
+  color: #111827;
+  background-color: #ffffff;
+}
+.app-frame input::placeholder, .app-frame textarea::placeholder,
+.login-shell input::placeholder { color: #6b7280; opacity: 1; }
+.app-frame :is(.panel,.calendar-widget,.day-agenda,.calendar-list-large,.service-type-group,
+  .assigned-team-card,.help-card,.account-popover,.modal,.service-details-card) {
+  border-color: #d7e3d1;
+}
+
+@media (max-width: 700px) {
+  .app-frame { background: var(--brand-gradient) fixed; }
+  .topbar { background: rgba(255,255,255,.98); }
+  .sidebar { background: #ffffff; }
+  .login-art { background: var(--brand-gradient); }
+  .brand-mark { width: 34px; height: 34px; }
+}
