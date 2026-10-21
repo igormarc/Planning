@@ -1,51 +1,90 @@
-# PlanningBand — actualización de lectura musical y diseño
+# PlanningBand — Citaciones, catálogo, temas y permisos de Visor
 
-Esta actualización corrige la presentación del repertorio y ajusta la interfaz de PlanningBand. Está preparada para aplicarse sobre el proyecto actual de GitHub/Netlify, no como una instalación nueva.
+## Qué incluye este parche
 
-## Qué cambia
+- `src/main.jsx`: interfaz de repertorio y servicio, asignaciones, semáforo de citaciones, respuesta y motivos de declinación, cola de avisos por correo, etiquetas temáticas, búsqueda externa y permisos visuales de Visor.
+- `src/styles.css`: estilos puntuales para catálogo de canciones y estados de respuesta.
+- `firestore.rules.updated.txt`: reglas de referencia basadas en la versión inicial de reglas entregada para PlanningBand. Ajusta la lectura completa de servicios/canciones, escritura de canciones por Editor y creación restringida de documentos de correo.
 
-- Limpia puntos utilizados como relleno visual en los PDF importados, por ejemplo `Adoro.Tu.Majestad` pasa a `Adoro Tu Majestad`.
-- Convierte separadores de puntos de acordes en espacios reales; por ejemplo `..Cm...........Fm` pasa a una línea con los acordes separados y espacios de alineación.
-- Muestra una vista previa de la letra y los acordes durante la importación.
-- Normaliza también canciones importadas anteriormente al mostrarlas y al abrirlas para editarlas. No se reescribe toda la base de datos al cargar la página; al abrir/guardar una canción como administrador se persistirán los cambios de esa canción.
-- Suaviza el fondo Smooth Gradient con los colores `#F2CF08`, `#E4FD02`, `#33DD4E` y `#5DFA86` a baja opacidad.
-- Deja los títulos en negro, el texto secundario en gris oscuro y los botones con fondo sólido blanco.
-- Retira la barra lateral derecha, la barra lateral izquierda duplicada y el aviso superior de sincronización, consolidando la navegación en la barra superior.
-- Aumenta tamaños de textos y filas del calendario y tipos de servicio, con ajustes para pantallas móviles.
-- Mantiene PlanningBand y suaviza los acentos de color del logo.
-- Cambia el diseño del documento de impresión de canciones para que use textos neutrales y botones blancos.
+**No se incluyen ni se deben reemplazar** `src/firebase.js`, `src/firebase-config.js`, `netlify.toml`, `package.json`, `.env` ni el logo/`index.html`. No hay migración de colecciones ni de documentos de canciones/servicios.
 
-## Archivos incluidos
+## 1. Respaldo primero
 
-- `src/main.jsx`
-- `src/styles.css`
-- `public/planningband-logo.svg`
-- `index.html`
+1. Abre el repositorio de PlanningBand en GitHub.
+2. Comprueba que el último despliegue bueno existe en Netlify.
+3. En GitHub, crea un commit de respaldo o duplica la rama antes de editar.
+4. No elimines el sitio de Netlify ni el proyecto Firebase.
 
-## Procedimiento recomendado
+## 2. Actualizar solo los dos archivos de la aplicación
 
-1. **Haz un respaldo primero:** en GitHub abre tu repositorio y confirma el estado actual con un commit, o crea una rama de respaldo.
-2. Descarga y descomprime este ZIP en tu computador.
-3. En el repositorio de GitHub, reemplaza únicamente los cuatro archivos incluidos, respetando las rutas y mayúsculas/minúsculas.
-4. **No reemplaces ni elimines otros archivos.** En particular, conserva `src/firebase.js`, `src/firebase-config.js`, las reglas `firestore.rules`, `netlify.toml`, las variables de entorno de Netlify, `package.json` y cualquier otro archivo propio del proyecto.
-5. Haz `Commit changes` en GitHub y espera que Netlify despliegue el commit.
-6. Solo considera aplicado el cambio cuando Netlify indique `Published`. Abre la web y recarga con `Ctrl + Shift + R`.
+1. Descomprime el ZIP.
+2. En el repositorio, abre `src/main.jsx` y reemplaza su contenido con `src/main.jsx` del ZIP.
+3. Abre `src/styles.css` y reemplaza su contenido con `src/styles.css` del ZIP.
+4. No subas el ZIP como un archivo dentro del repositorio: usa los archivos descomprimidos en las mismas rutas.
+5. Haz `Commit changes` y deja que Netlify compile desde el repositorio. No cambies variables de entorno por este parche.
 
-## Pruebas recomendadas tras desplegar
+## 3. Actualizar las reglas de Firestore (necesario para los permisos nuevos)
 
-1. Inicia sesión con el administrador y confirma que cargan servicios, personas y canciones existentes.
-2. Abre una canción que antes mostraba palabras separadas por puntos: comprueba letra y acordes. La vista normalizadora no borra datos en Firestore solo por abrir el repertorio.
-3. Importa **un único PDF** de prueba. Revisa título, artista, tonalidad, letra, acordes y vista previa antes de guardar.
-4. Abre esa canción con una cuenta Visor y comprueba que la lectura también se muestra limpia.
-5. Comprueba la navegación superior en computadora y móvil, y confirma que los botones tengan fondo sólido y los textos alto contraste.
+Las reglas son independientes del código del sitio; no se publican por Netlify.
 
-## Alcance y límites
+1. Firebase Console → tu proyecto → **Build → Firestore Database → Rules**.
+2. Copia el contenido actual a un archivo de respaldo antes de editar.
+3. Abre `firestore.rules.updated.txt` en el ZIP.
+4. Si las reglas actuales son las mismas que el archivo base de PlanningBand que venía en la instalación anterior, puedes pegar el archivo actualizado completo en el editor de Rules y pulsar **Publish**.
+5. Si agregaste reglas propias o tus reglas se ven diferentes, **no reemplaces todo a ciegas**. Integra solo estos cambios en las coincidencias existentes:
+   - `/services/{serviceId}`: `allow read: if hasAccess();` (todos los usuarios activos pueden consultar servicios; crear/editar/eliminar sigue limitado a Administrador/Editor).
+   - `/songs/{songId}`: `allow read: if hasAccess();`, `allow create, update: if isAdmin() || isEditor();`, `allow delete: if isAdmin();`.
+   - Añade el bloque `match /mail/{mailId}` del archivo de reglas. Solo permite encolar citaciones y avisos de declinación bajo condiciones comprobadas; la aplicación no puede leer, actualizar ni borrar la cola.
+6. Pulsa **Publish** y comprueba que Firebase acepte las reglas. No pruebes permisos usando datos reales hasta que Firebase confirme que las reglas fueron publicadas.
 
-- El lector trabaja en el navegador y no guarda los bytes del PDF en Firebase Storage.
-- La extracción requiere un PDF con texto seleccionable. Si el PDF contiene solo páginas escaneadas como imágenes, todavía necesita OCR; no debe darse por correcto un resultado vacío.
-- La ubicación horizontal de los acordes se reconstruye a partir de las posiciones del texto del PDF. La vista previa editable permite corregir cualquier alineación que no se haya recuperado perfectamente.
-- La actualización no modifica colecciones, documentos, reglas ni credenciales de Firebase.
+Estos cambios son necesarios: ocultar botones en React no basta para permisos reales. Las reglas de Firestore deben permitir al Visor leer los servicios/canciones, pero seguir limitando sus respuestas al servicio que tiene asignado.
 
-## Nota sobre la compilación
+## 4. Configurar el envío real de correo
 
-He validado sintácticamente JSX, CSS y las funciones de normalización con ejemplos representativos. No pude completar una compilación de Vite en este entorno, porque no se pudieron instalar las dependencias desde npm. La compilación y el funcionamiento deben confirmarse en el despliegue automático de Netlify antes de considerar liberada esta versión.
+El frontend **encola** un documento en Firestore; eso por sí solo no entrega un correo. Para entregar los mensajes hace falta un procesador de correo en servidor.
+
+La integración incluida usa el formato compatible con la extensión **Trigger Email from Firestore**, que escucha una colección configurada y envía el contenido de `to` y `message.subject/text/html`.
+
+Documentación oficial: https://firebase.google.com/docs/extensions/official/firestore-send-email
+
+Si la tienes instalada:
+- Confirma que la colección que escucha se llame exactamente `mail`.
+- Confirma que SMTP esté configurado y que tenga un remitente autorizado.
+- Después de una prueba, abre Firestore → colección `mail` y revisa el campo de estado/entrega que añade la extensión.
+
+Si no la tienes instalada, necesitarás configurar un proveedor SMTP y un procesador. No publiques credenciales SMTP en React, GitHub ni en variables `VITE_*`; son secretos de servidor.
+
+**Plan de continuidad:** Firebase ha anunciado el cierre del servicio administrado de Extensions el 31 de marzo de 2027. Las extensiones ya instaladas deben seguir ejecutándose, pero perderán las capacidades de administración/reconfiguración desde esa fecha. Para una solución duradera, planifica migrar el envío de correo a una Cloud Function o Function Kit antes del cierre: https://firebase.google.com/docs/extensions/faq-and-troubleshooting
+
+## 5. Cómo usar las nuevas funciones
+
+### Convocatorias
+- Entra en el servicio → **Equipos**.
+- Usa **Convocar por lote** para seleccionar integrantes y definir la posición; al guardar, el sistema encola un correo individual por persona.
+- Para reenviar solo a una persona, usa el icono del sobre en su fila.
+- El asunto es `Citación PlanningBand`; incluye nombre, servicio, fecha, horario, posición y enlace a la aplicación.
+- El integrante inicia sesión y en sus servicios ve **Aceptar convocatoria** o **Declinar**. Declinar requiere un motivo. El semáforo se muestra como verde (aceptó), amarillo (pendiente), rojo (declinó).
+- El rechazo se registra en Firestore; también se encola un aviso al correo administrativo asociado al servicio/respuesta, siempre que el procesador de correo esté configurado.
+
+### Canciones
+- En **Orden del servicio**, pulsa **Agregar canción** para desplegar el catálogo entero; puedes filtrar por nombre/artista/tema y agregar una tonalidad.
+- En el formulario de canción, usa las etiquetas temáticas sugeridas o agrega otras separadas por comas.
+- En la biblioteca, filtra por tema/tonalidad. Si una búsqueda no devuelve canciones, aparecen enlaces externos de búsqueda a La Cuerda y Cifra Club.
+
+### Permisos Visor
+- Puede consultar todas las canciones y todos los servicios.
+- Solo puede aceptar o declinar convocatorias donde su `personId` figure en `invitedPersonIds`.
+- No obtiene acceso a la administración de personas, equipos o plantillas.
+
+## 6. Pruebas antes de darlo por terminado
+
+1. Inicia sesión como Administrador y confirma que puedes ver/editar servicios y canciones.
+2. Crea/edita una canción con dos etiquetas y verifica el filtro por tema.
+3. Abre un servicio → Orden → **Agregar canción**. La lista debe mostrar todas las canciones disponibles sin escribir una búsqueda.
+4. En Equipos, selecciona un único integrante y guarda/encola la citación. Revisa la colección `mail` y el correo recibido.
+5. Repite con varios integrantes desde convocatoria por lote.
+6. Inicia sesión con una cuenta Visor: debe ver todo el calendario y el catálogo, pero solo responder en su citación asignada.
+7. Declina una citación sin motivo: no debe dejar avanzar. Luego escribe un motivo, declina y comprueba el semáforo rojo y el correo al administrador.
+8. Verifica que los roles Editor/Visor respeten las reglas. Si un query devuelve `Missing or insufficient permissions`, revisa las reglas publicadas y el documento `memberAccess` del usuario.
+
+No he podido ejecutar un despliegue de producción en tus cuentas desde aquí. Esta entrega mantiene los archivos de configuración fuera del ZIP y requiere aplicar las reglas y el procesador de correo descritos arriba.

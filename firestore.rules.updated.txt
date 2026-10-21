@@ -1,0 +1,144 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null && request.auth.token.email != null;
+    }
+    function currentEmail() {
+      return request.auth.token.email.lower();
+    }
+    function accessPath() {
+      return /databases/$(database)/documents/memberAccess/$(currentEmail());
+    }
+    function hasAccess() {
+      return signedIn() && exists(accessPath()) && get(accessPath()).data.active == true;
+    }
+    function myProfile() {
+      return get(accessPath()).data;
+    }
+    function isAdmin() {
+      return hasAccess() && myProfile().role == 'Administrador';
+    }
+    function isEditor() {
+      return hasAccess() && myProfile().role == 'Editor';
+    }
+    function isStaff() {
+      return isAdmin() || isEditor();
+    }
+    function isAssignedToService(serviceId, personId) {
+      return exists(/databases/$(database)/documents/services/$(serviceId))
+        && get(/databases/$(database)/documents/services/$(serviceId)).data.invitedPersonIds is list
+        && get(/databases/$(database)/documents/services/$(serviceId)).data.invitedPersonIds.hasAny([personId]);
+    }
+
+    match /memberAccess/{email} {
+      allow get: if signedIn() && (currentEmail() == email || isAdmin());
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /people/{personId} {
+      allow read: if isStaff() || (hasAccess() && resource.data.email == currentEmail());
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /services/{serviceId} {
+      // All active PlanningBand users can consult the full services calendar.
+      // Only Admin/Editor can create or change services.
+      allow read: if hasAccess();
+      allow create, update, delete: if isStaff();
+    }
+
+    match /songs/{songId} {
+      // All active PlanningBand users can consult the complete song catalog.
+      allow read: if hasAccess();
+      // Editors can maintain the repertoire; only Admin can delete a song.
+      allow create, update: if isAdmin() || isEditor();
+      allow delete: if isAdmin();
+    }
+
+    match /teams/{teamId} {
+      allow read: if isStaff();
+      allow create, update, delete: if isAdmin() || isEditor();
+    }
+
+    match /serviceTypes/{typeId} {
+      allow read: if isStaff();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /notes/{noteId} {
+      allow read, write: if isStaff();
+    }
+
+    match /serviceResponses/{responseId} {
+      allow read: if isStaff() || (hasAccess() && resource.data.personId == myProfile().personId);
+      allow create: if isAdmin()
+        || (isEditor()
+          && request.resource.data.status == 'pending'
+          && request.resource.data.reason == ''
+          && request.resource.data.serviceId is string
+          && request.resource.data.personId is string
+          && isAssignedToService(request.resource.data.serviceId, request.resource.data.personId))
+        || (hasAccess()
+          && request.resource.data.personId == myProfile().personId
+          && request.resource.data.serviceId is string
+          && isAssignedToService(request.resource.data.serviceId, myProfile().personId)
+          && request.resource.data.status in ['accepted', 'declined']
+          && (request.resource.data.status != 'declined'
+            || (request.resource.data.reason is string && request.resource.data.reason.size() > 0)));
+      allow update: if isAdmin()
+        || (hasAccess()
+          && resource.data.personId == myProfile().personId
+          && request.resource.data.personId == resource.data.personId
+          && request.resource.data.serviceId == resource.data.serviceId
+          && isAssignedToService(resource.data.serviceId, myProfile().personId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reason', 'respondedAt', 'updatedAt'])
+          && request.resource.data.status in ['accepted', 'declined']
+          && (request.resource.data.status != 'declined'
+            || (request.resource.data.reason is string && request.resource.data.reason.size() > 0)));
+      allow delete: if isAdmin() || (isEditor() && (resource.data.status == 'pending' || !isAssignedToService(resource.data.serviceId, resource.data.personId)));
+    }
+
+    // Client-created mail queue documents are restricted to validated PlanningBand workflows.
+    // The Trigger Email extension (server/Admin SDK) processes these documents and updates delivery metadata.
+    match /mail/{mailId} {
+      allow create: if (
+          isStaff()
+          && request.resource.data.kind == 'citation'
+          && request.resource.data.serviceId is string
+          && request.resource.data.personId is string
+          && request.resource.data.to is string
+          && isAssignedToService(request.resource.data.serviceId, request.resource.data.personId)
+          && exists(/databases/$(database)/documents/people/$(request.resource.data.personId))
+          && get(/databases/$(database)/documents/people/$(request.resource.data.personId)).data.email is string
+          && get(/databases/$(database)/documents/people/$(request.resource.data.personId)).data.email.lower() == request.resource.data.to
+          && request.resource.data.message.subject == 'Citación PlanningBand'
+        )
+        || (
+          hasAccess()
+          && request.resource.data.kind == 'decline-notice'
+          && request.resource.data.personId == myProfile().personId
+          && request.resource.data.serviceId is string
+          && request.resource.data.responseId is string
+          && request.resource.data.to is string
+          && exists(/databases/$(database)/documents/services/$(request.resource.data.serviceId))
+          && get(/databases/$(database)/documents/services/$(request.resource.data.serviceId)).data.invitedPersonIds is list
+          && get(/databases/$(database)/documents/services/$(request.resource.data.serviceId)).data.invitedPersonIds.hasAny([myProfile().personId])
+          && exists(/databases/$(database)/documents/serviceResponses/$(request.resource.data.responseId))
+          && get(/databases/$(database)/documents/serviceResponses/$(request.resource.data.responseId)).data.personId == myProfile().personId
+          && get(/databases/$(database)/documents/serviceResponses/$(request.resource.data.responseId)).data.serviceId == request.resource.data.serviceId
+          && get(/databases/$(database)/documents/serviceResponses/$(request.resource.data.responseId)).data.status == 'declined'
+          && (
+            get(/databases/$(database)/documents/services/$(request.resource.data.serviceId)).data.notificationEmail == request.resource.data.to
+            || (
+              get(/databases/$(database)/documents/serviceResponses/$(request.resource.data.responseId)).data.keys().hasAny(['adminEmail'])
+              && get(/databases/$(database)/documents/serviceResponses/$(request.resource.data.responseId)).data.adminEmail == request.resource.data.to
+            )
+          )
+          && request.resource.data.message.subject == 'Citación declinada · PlanningBand'
+        );
+      allow read, update, delete: if false;
+    }
+  }
+}
