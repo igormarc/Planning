@@ -4796,3 +4796,237 @@ h3 { font-size: 18px; }
   .app-frame :is(p, small, label, li, span, .muted) { color: #374151 !important; }
   .app-frame :is(h1, h2, h3, strong, th, td) { color: #111827 !important; }
 }
+
+/* ================================================================
+   PlanningBand — Global legibility scale pass
+   Goal: ~30% larger hierarchy and controls without changing behavior.
+   CSS-only update: Firebase, Netlify, auth, data and app logic unchanged.
+   ================================================================ */
+.app-frame { font-size: 16px !important; }
+.main-content {
+  max-width: 1840px !important;
+  padding: 36px clamp(18px, 3.2vw, 58px) 64px !important;
+}
+.topbar { min-height: 116px !important; grid-template-rows: 54px 44px !important; row-gap: 3px !important; }
+.top-brand { font-size: 24px !important; }
+.top-brand .brand-mark { width: 40px !important; height: 40px !important; }
+.top-nav { height: 44px !important; gap: 7px !important; }
+.top-nav-item { min-height: 40px !important; height: 40px !important; padding: 9px 16px !important; font-size: 15px !important; }
+.account-btn { font-size: 14px !important; gap: 10px !important; }
+.search-shortcut { font-size: 14px !important; padding: 9px 12px !important; }
+.icon-btn { width: 42px !important; height: 42px !important; }
+.icon-btn.subtle { width: 36px !important; height: 36px !important; }
+.icon-btn.bordered { min-width: 42px !important; min-height: 42px !important; }
+.btn, .app-frame .btn { min-height: 46px !important; padding: 11px 16px !important; font-size: 15px !important; line-height: 1.3 !important; }
+.btn.small, .app-frame .btn.small { min-height: 40px !important; padding: 9px 12px !important; font-size: 14px !important; }
+
+/* Global headings, descriptions and form controls */
+.page-heading { margin: 16px 0 34px !important; gap: 22px !important; }
+.page-heading h1 { font-size: clamp(36px, 2.65vw, 44px) !important; line-height: 1.14 !important; }
+.page-heading p { font-size: 17px !important; line-height: 1.6 !important; max-width: 900px !important; }
+.app-frame h2 { font-size: 24px !important; line-height: 1.3 !important; }
+.app-frame h3 { font-size: 19px !important; line-height: 1.35 !important; }
+.app-frame p, .app-frame li, .app-frame label, .app-frame .muted { font-size: 15px !important; line-height: 1.55 !important; }
+.app-frame small { font-size: 13px !important; line-height: 1.45 !important; }
+.app-frame .eyebrow { font-size: 12px !important; line-height: 1.4 !important; letter-spacing: .08em !important; }
+.app-frame input:not([type=checkbox]):not([type=radio]),
+.app-frame select, .app-frame textarea,
+.login-shell input:not([type=checkbox]):not([type=radio]), .login-shell select, .login-shell textarea {
+  font-size: 16px !important; line-height: 1.45 !important;
+}
+.app-frame input:not([type=checkbox]):not([type=radio]), .app-frame select { min-height: 44px !important; }
+.app-frame textarea { min-height: 120px; padding: 12px !important; }
+.modal-header h2 { font-size: 25px !important; }
+.modal-form label { font-size: 15px !important; line-height: 1.5 !important; }
+.modal-form input:not([type=checkbox]), .modal-form select { height: 48px !important; font-size: 16px !important; }
+.modal-form textarea { min-height: 100px !important; font-size: 16px !important; }
+
+/* Dashboard: calendar, service type list, upcoming services and data tables */
+.service-overview-grid { grid-template-columns: minmax(285px, .82fr) minmax(0, 1.8fr) !important; gap: 28px !important; }
+.calendar-widget { padding: 21px 19px !important; border-radius: 13px !important; }
+.calendar-head strong { font-size: 17px !important; }
+.calendar-arrows button { width: 36px !important; height: 36px !important; font-size: 15px !important; }
+.calendar-weekdays span { height: 30px !important; font-size: 12px !important; }
+.calendar-grid { gap: 4px !important; }
+.calendar-day { height: 42px !important; font-size: 15px !important; }
+.calendar-link { font-size: 14px !important; padding-top: 13px !important; }
+.mini-section-head { font-size: 13px !important; }
+.agenda-item { padding: 14px 0 !important; gap: 13px !important; }
+.agenda-copy strong { font-size: 15px !important; line-height: 1.45 !important; }
+.agenda-copy small { font-size: 13px !important; }
+.service-types-head .section-title h2, .section-title h2 { font-size: 24px !important; }
+.service-type-row { min-height: 78px !important; padding: 10px 16px !important; }
+.type-expand { width: 38px !important; min-width: 38px !important; height: 42px !important; }
+.type-main { gap: 14px !important; padding: 11px 9px !important; }
+.type-main>span:nth-child(2) { font-size: 20px !important; line-height: 1.4 !important; }
+.type-main small { font-size: 14px !important; }
+.type-actions .icon-btn { width: 42px !important; height: 42px !important; }
+.type-view-btn { height: 40px !important; padding: 0 14px !important; font-size: 14px !important; }
+.type-expanded { padding: 7px 16px 10px 58px !important; }
+.type-service-row { min-height: 66px !important; padding: 14px 9px !important; gap: 14px !important; font-size: 16px !important; line-height: 1.5 !important; }
+.type-service-date, .type-service-time { font-size: 14px !important; }
+.type-no-services { font-size: 15px !important; padding: 17px 9px !important; }
+.upcoming-row { padding: 18px 6px !important; gap: 17px !important; }
+.upcoming-info strong, .table-title-button strong, .team-card-title h3 { font-size: 18px !important; line-height: 1.4 !important; }
+.upcoming-info span { font-size: 15px !important; line-height: 1.5 !important; }
+.data-table { font-size: 15px !important; }
+.data-table th { font-size: 13px !important; padding: 16px 14px !important; }
+.data-table td { font-size: 15px !important; padding: 17px 14px !important; line-height: 1.5 !important; }
+.data-table td small, .data-table td .muted, .table-title-button small, .person-cell small { font-size: 13px !important; }
+.table-bottom button { min-width: 38px !important; min-height: 38px !important; font-size: 14px !important; }
+
+/* Service detail screen — directly addresses the small order/summary shown in the screenshot. */
+.detail-breadcrumb { font-size: 14px !important; margin-bottom: 24px !important; gap: 11px !important; }
+.detail-breadcrumb button { font-size: 14px !important; min-height: 36px !important; }
+.detail-header { gap: 28px !important; margin-bottom: 30px !important; }
+.detail-header h1 { font-size: clamp(36px, 2.45vw, 44px) !important; line-height: 1.15 !important; margin-bottom: 14px !important; }
+.detail-meta { font-size: 14px !important; gap: 18px !important; line-height: 1.5 !important; }
+.detail-meta svg { width: 18px !important; height: 18px !important; }
+.service-tabs { gap: 25px !important; margin-bottom: 26px !important; }
+.service-tabs button { font-size: 15px !important; gap: 10px !important; padding: 6px 8px 16px !important; min-height: 48px !important; }
+.service-tabs button svg { width: 20px !important; height: 20px !important; }
+.service-tabs button span { min-width: 24px !important; font-size: 12px !important; padding: 4px 7px !important; }
+.order-layout { grid-template-columns: minmax(0, 1fr) minmax(330px, 370px) !important; gap: 26px !important; }
+.order-toolbar { align-items: center !important; gap: 20px !important; margin: 5px 0 22px !important; }
+.order-toolbar h2, .team-plan-head h2, .rehearse-top h2 { font-size: 25px !important; margin-bottom: 7px !important; }
+.order-toolbar p, .team-plan-head p, .rehearse-top p { font-size: 15px !important; line-height: 1.5 !important; color: #374151 !important; }
+.order-actions { gap: 10px !important; }
+.order-table { border-radius: 12px !important; }
+.order-table-head, .order-item { grid-template-columns: 60px minmax(220px,1fr) 96px 112px 52px !important; gap: 9px !important; }
+.order-table-head { padding: 16px 16px !important; font-size: 12px !important; letter-spacing: .1em !important; }
+.order-section-head { min-height: 50px !important; height: auto !important; padding: 8px 16px !important; gap: 13px !important; }
+.order-section-head strong { font-size: 13px !important; letter-spacing: .07em !important; }
+.section-count { font-size: 12px !important; }
+.section-controls { gap: 5px !important; opacity: .8 !important; }
+.section-controls button { width: 34px !important; height: 34px !important; }
+.section-controls button svg { width: 18px !important; height: 18px !important; }
+.order-item { min-height: 68px !important; padding: 10px 16px !important; }
+.order-item-grip button { width: 24px !important; height: 34px !important; }
+.order-item-grip button svg { width: 16px !important; height: 16px !important; }
+.order-item-title { gap: 11px !important; }
+.song-mini-icon { width: 38px !important; height: 38px !important; border-radius: 9px !important; }
+.song-mini-icon svg { width: 19px !important; height: 19px !important; }
+.order-item-title strong { font-size: 16px !important; line-height: 1.4 !important; white-space: normal !important; overflow: visible !important; text-overflow: clip !important; }
+.order-item-title small { font-size: 13px !important; line-height: 1.4 !important; color: #4b5563 !important; }
+.order-item select { min-height: 42px !important; padding: 8px 9px !important; font-size: 15px !important; }
+.duration-input { min-height: 42px !important; padding: 8px 9px !important; font-size: 15px !important; }
+.order-item-actions { opacity: .82 !important; gap: 3px !important; }
+.order-item-actions button { width: 30px !important; height: 36px !important; }
+.order-item-actions button svg { width: 18px !important; height: 18px !important; }
+.add-song-row { padding: 13px 16px 13px 80px !important; gap: 10px !important; min-height: 52px !important; font-size: 15px !important; }
+.add-song-row > svg { width: 19px !important; height: 19px !important; }
+.add-song-row input { font-size: 15px !important; min-height: 34px !important; }
+.add-song-row > button { font-size: 14px !important; min-height: 36px !important; padding: 5px 8px !important; }
+.song-search-results { top: 48px !important; left: 68px !important; right: 12px !important; }
+.song-search-results button { padding: 13px 15px !important; }
+.song-search-results strong { font-size: 15px !important; }
+.song-search-results small { font-size: 13px !important; }
+.order-footer { gap: 12px !important; padding: 15px 5px !important; font-size: 13px !important; flex-wrap: wrap !important; }
+.order-footer strong { font-size: 16px !important; }
+.order-footer .text-link { font-size: 13px !important; }
+.order-aside { gap: 17px !important; }
+.order-aside .panel { padding: 21px !important; border-radius: 13px !important; }
+.aside-title { margin-bottom: 16px !important; gap: 12px !important; }
+.aside-title h3 { font-size: 16px !important; }
+.aside-title .icon-btn { width: 38px !important; height: 38px !important; }
+.summary-line { gap: 12px !important; padding: 13px 0 !important; font-size: 14px !important; line-height: 1.45 !important; }
+.summary-line span { font-size: 14px !important; color: #4b5563 !important; }
+.summary-line strong { font-size: 14px !important; color: #111827 !important; }
+.aside-progress { margin-top: 8px !important; padding-top: 15px !important; }
+.aside-progress>div:first-child { font-size: 13px !important; margin-bottom: 10px !important; }
+.aside-progress span, .aside-progress strong { font-size: 13px !important; color: #374151 !important; }
+.progress-track { height: 7px !important; }
+.note-panel textarea { min-height: 150px !important; padding: 12px !important; font-size: 15px !important; line-height: 1.55 !important; }
+.note-save-row { gap: 12px !important; margin-top: 12px !important; }
+.note-save-row>span, .autosave { font-size: 13px !important; line-height: 1.45 !important; color: #4b5563 !important; }
+
+/* Other important app areas: team assignments, invitations, song reader and modals. */
+.assigned-team-grid, .teams-directory-grid { gap: 18px !important; }
+.assigned-team-card { padding: 18px !important; }
+.assigned-team-head h3 { font-size: 18px !important; }
+.assigned-member { padding: 12px 0 !important; }
+.assigned-member strong, .invitee-person strong { font-size: 15px !important; }
+.assigned-member small, .invitee-person small { font-size: 13px !important; }
+.assign-picker label, .field-label { font-size: 14px !important; }
+.assign-picker select { min-height: 46px !important; font-size: 15px !important; }
+.invitee-row { gap: 12px !important; padding: 14px 0 !important; }
+.response-pill { font-size: 13px !important; padding: 6px 9px !important; }
+.reader-content { font-size: 19px !important; line-height: 1.9 !important; }
+.chord-content { font-size: 17px !important; line-height: 1.75 !important; }
+.song-reader-body { gap: 24px !important; padding: 24px !important; }
+
+/* Medium screens: give the order and notes the full available width instead of squeezing them. */
+@media (max-width: 1250px) {
+  .order-layout { grid-template-columns: minmax(0,1fr) !important; gap: 22px !important; }
+  .order-aside { display: grid !important; grid-template-columns: repeat(2,minmax(0,1fr)) !important; gap: 16px !important; }
+  .service-overview-grid { grid-template-columns: minmax(250px,.75fr) minmax(0,1.5fr) !important; gap: 22px !important; }
+}
+@media (max-width: 900px) {
+  .service-overview-grid { grid-template-columns: minmax(0,1fr) !important; }
+  .calendar-column { display: grid !important; grid-template-columns: minmax(0,300px) minmax(0,1fr) !important; gap: 18px !important; }
+  .order-aside { grid-template-columns: minmax(0,1fr) !important; }
+}
+@media (max-width: 760px) {
+  .main-content { padding: 25px 15px 48px !important; }
+  .topbar { min-height: 104px !important; grid-template-rows: 48px 45px !important; padding: 7px 12px 6px !important; }
+  .top-brand { font-size: 21px !important; }
+  .top-nav { height: 45px !important; gap: 5px !important; }
+  .top-nav-item { height: 39px !important; min-height: 39px !important; padding: 8px 13px !important; font-size: 14px !important; }
+  .page-heading { gap: 14px !important; margin: 7px 0 25px !important; }
+  .page-heading h1 { font-size: 34px !important; }
+  .page-heading p { font-size: 16px !important; }
+  .service-overview-grid, .calendar-column { grid-template-columns: minmax(0,1fr) !important; }
+  .service-type-row { min-height: 76px !important; padding: 10px 9px !important; }
+  .type-main>span:nth-child(2) { font-size: 18px !important; line-height: 1.4 !important; }
+  .type-main small { font-size: 13px !important; }
+  .type-service-row { min-height: 64px !important; gap: 8px 12px !important; }
+  .detail-header { flex-direction: column !important; align-items: stretch !important; gap: 16px !important; }
+  .detail-header h1 { font-size: 34px !important; }
+  .detail-meta { font-size: 14px !important; gap: 10px 14px !important; }
+  .heading-actions { width: 100% !important; display: flex !important; align-items: center !important; }
+  .heading-actions .btn { flex: 1 1 auto !important; font-size: 14px !important; }
+  .service-tabs { gap: 10px !important; overflow-x: auto !important; white-space: nowrap !important; }
+  .service-tabs button { font-size: 14px !important; flex: 0 0 auto !important; }
+  .order-toolbar { flex-direction: column !important; align-items: flex-start !important; }
+  .order-toolbar h2 { font-size: 23px !important; }
+  .order-actions { width: 100% !important; }
+  .order-actions .btn { flex: 1 1 auto !important; }
+  .order-table { overflow-x: auto !important; overflow-y: visible !important; }
+  .order-table-head, .order-item, .order-section-head, .add-song-row { min-width: 760px !important; }
+  .order-table-head, .order-item { grid-template-columns: 60px minmax(240px,1fr) 96px 112px 52px !important; }
+  .order-item-title strong { font-size: 16px !important; }
+  .order-aside { display: flex !important; flex-direction: column !important; }
+  .order-aside .panel { padding: 18px !important; }
+  .summary-line, .summary-line span, .summary-line strong { font-size: 14px !important; }
+  .note-panel textarea { min-height: 140px !important; }
+  .modal-backdrop { padding: 10px !important; }
+  .modal-header { padding: 18px !important; }
+  .modal-form { padding: 18px !important; }
+  .form-two, .form-three { grid-template-columns: minmax(0,1fr) !important; }
+  .data-table-wrap { overflow-x: auto !important; }
+  .data-table { min-width: 650px !important; }
+}
+
+/* Mobile readability refinement: preserve usable labels without forcing a 760px table. */
+@media (max-width: 760px) {
+  .order-table { overflow-x: auto !important; overflow-y: visible !important; }
+  .order-table-head { min-width: 0 !important; grid-template-columns: minmax(0,1fr) 62px 66px 30px !important; gap: 5px !important; padding: 13px 10px !important; font-size: 10px !important; }
+  .order-table-head span:first-child { display: none !important; }
+  .order-item { min-width: 0 !important; grid-template-columns: minmax(0,1fr) 62px 66px 30px !important; gap: 5px !important; padding: 10px !important; min-height: 78px !important; }
+  .order-item-grip { display: none !important; }
+  .order-item-title { min-width: 0 !important; gap: 8px !important; }
+  .order-item-title strong { white-space: normal !important; overflow-wrap: anywhere !important; font-size: 14px !important; line-height: 1.35 !important; }
+  .order-item-title small { font-size: 12px !important; }
+  .song-mini-icon { width: 32px !important; height: 32px !important; }
+  .order-item select, .duration-input { min-height: 38px !important; height: 38px !important; padding: 6px 4px !important; font-size: 13px !important; }
+  .order-item-actions { display: flex !important; flex-direction: column !important; align-items: center !important; gap: 2px !important; opacity: 1 !important; }
+  .order-item-actions button { width: 28px !important; height: 30px !important; }
+  .order-section-head { min-width: 0 !important; min-height: 48px !important; padding: 8px 10px !important; gap: 8px !important; }
+  .order-section-head strong { font-size: 12px !important; }
+  .section-count { font-size: 11px !important; }
+  .section-controls button { width: 31px !important; height: 31px !important; }
+  .add-song-row { min-width: 0 !important; flex-wrap: wrap !important; padding: 11px 10px !important; gap: 8px !important; }
+  .add-song-row input { flex: 1 1 calc(100% - 32px) !important; min-width: 0 !important; font-size: 14px !important; }
+  .add-song-row>button { margin-left: 27px !important; font-size: 13px !important; }
+  .song-search-results { left: 10px !important; right: 10px !important; top: 46px !important; }
+}
