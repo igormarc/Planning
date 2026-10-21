@@ -63,7 +63,7 @@ function openPrintDocument(title, body, subtitle = '', useMonospace = false) {
   const safeTitle = escapeHtml(title)
   const safeSubtitle = escapeHtml(subtitle)
   const contentFont = useMonospace ? 'font-family:ui-monospace,SFMono-Regular,Menlo,monospace;' : ''
-  win.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${safeTitle}</title><style>body{font-family:Arial,sans-serif;max-width:820px;margin:36px auto;padding:0 28px;color:#172b2a}h1{font-size:25px;margin:0 0 6px}p{color:#5a7270;margin:0 0 26px}.content{white-space:pre-wrap;overflow-wrap:anywhere;font-size:16px;line-height:1.8;${contentFont}}.top{display:flex;justify-content:space-between;gap:16px;border-bottom:2px solid #20a6a1;padding-bottom:18px;margin-bottom:24px}.print{background:#087f82;border:0;color:white;padding:12px 18px;border-radius:8px;font-weight:bold}@media print{body{margin:0 auto;padding:0}.print{display:none}}</style></head><body><div class="top"><div><h1>${safeTitle}</h1><p>${safeSubtitle}</p></div><button class="print" onclick="window.print()">Guardar / imprimir PDF</button></div><div class="content">${safe}</div><script>setTimeout(()=>window.print(),500)<\/script></body></html>`)
+  win.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${safeTitle}</title><style>body{font-family:Arial,sans-serif;max-width:820px;margin:36px auto;padding:0 28px;color:#111827}h1{font-size:25px;margin:0 0 6px}p{color:#4b5563;margin:0 0 26px}.content{white-space:pre-wrap;overflow-wrap:anywhere;font-size:16px;line-height:1.8;${contentFont}}.top{display:flex;justify-content:space-between;gap:16px;border-bottom:2px solid #d1d5db;padding-bottom:18px;margin-bottom:24px}.print{background:#ffffff;border:1px solid #cfd5cc;color:#111827;padding:12px 18px;border-radius:8px;font-weight:bold}@media print{body{margin:0 auto;padding:0}.print{display:none}}</style></head><body><div class="top"><div><h1>${safeTitle}</h1><p>${safeSubtitle}</p></div><button class="print" onclick="window.print()">Guardar / imprimir PDF</button></div><div class="content">${safe}</div><script>setTimeout(()=>window.print(),500)<\/script></body></html>`)
   win.document.close()
 }
 const keyOptions = ['C','C#','Db','D','Eb','E','F','F#','Gb','G','Ab','A','Bb','B','Cm','C#m','Dm','Ebm','Em','Fm','F#m','Gm','G#m','Am','Bbm','Bm']
@@ -95,6 +95,40 @@ function isChordOnlyLine(line) {
   const chordToken = /^(?:N\.?C\.?|[A-G](?:#|b)?(?:m|min|maj|dim|aug|sus[24]?|add\d+|m(?:aj)?\d+|maj\d+|[0-9]+|ø|°)?(?:\/[A-G](?:#|b)?)?(?:\([^)]*\))?)$/i
   const tokens = cleaned.split(' ')
   return tokens.length > 0 && tokens.some(token => /^[A-G]/i.test(token)) && tokens.every(token => chordToken.test(token) || /^[()\[\]{}]+$/.test(token))
+}
+
+// Legacy song PDFs often encode blank space used for chord alignment as literal dots.
+// Clean those placeholders without flattening chord positions or changing the stored format.
+function normalizeImportedLyricsLine(value = '') {
+  let text = String(value).replace(/[\u00a0\u2007\u202f]/g, ' ').replace(/[\u200b-\u200d\ufeff]/g, '')
+  // Some exports put dots between every word instead of real whitespace: "Adoro.Tu.Majestad".
+  text = text.replace(/([,;:!?])\s*[.·•]+(?=\p{L})/gu, '$1 ')
+  text = text.replace(/([\p{L}\p{N}])[.·•]+(?=[\p{L}\p{N}])/gu, '$1 ')
+  // Leading/trailing dot leaders are visual spacing, not song lyrics.
+  text = text.replace(/^[\s.·•]+(?=[\p{L}\p{N}])/u, '')
+  text = text.replace(/[.·•]{2,}\s*$/u, '')
+  return text.replace(/[ \t]{2,}/g, ' ').trim()
+}
+
+function normalizeImportedMusicLine(value = '') {
+  const raw = String(value).replace(/[\u00a0\u2007\u202f]/g, ' ').replace(/[\u200b-\u200d\ufeff]/g, '')
+  if (!raw.trim()) return ''
+  if (!isChordOnlyLine(raw)) return normalizeImportedLyricsLine(raw)
+  // In chord-only rows, replace dot leaders with real spaces and preserve approximate chord columns.
+  // Cap a run so a malformed PDF cannot create a multi-kilobyte line that breaks mobile layout.
+  return raw.replace(/[.·•]+/g, dots => ' '.repeat(Math.min(dots.length, 16))).replace(/[ \t]+$/g, '')
+}
+
+function normalizeImportedLyricsText(value = '') {
+  return String(value || '').replace(/\r\n?/g, '\n').split('\n')
+    .map(line => line.trim() ? normalizeImportedLyricsLine(line) : '')
+    .join('\n').replace(/\n{3,}/g, '\n\n').trim()
+}
+
+function normalizeImportedMusicText(value = '') {
+  return String(value || '').replace(/\r\n?/g, '\n').split('\n')
+    .map(line => line.trim() ? normalizeImportedMusicLine(line) : '')
+    .join('\n').replace(/\n{3,}/g, '\n\n').trim()
 }
 
 function reconstructPdfRows(items, pageNumber) {
@@ -163,16 +197,15 @@ async function readSongPdfInBrowser(file) {
     const first = nonEmpty[0]
     const rawTitle = first.text.trim()
     const key = detectImportedKey(rawTitle) || detectImportedKey(nonEmpty.slice(0, 10).map(row => row.text.trim()).join('\n')) || 'C'
-    const title = rawTitle
-      .replace(/\s*\[\s*[A-G](?:#|b)?\s*(?:m|min|minor|maj|major)?\s*\]\s*/i, ' ')
-      .replace(/\s{2,}/g, ' ').trim() || file.name.replace(/\.pdf$/i, '')
+    const title = normalizeImportedLyricsLine(rawTitle
+      .replace(/\s*\[\s*[A-G](?:#|b)?\s*(?:m|min|minor|maj|major)?\s*\]\s*/i, ' ')) || file.name.replace(/\.pdf$/i, '')
     const metadataKeyLine = nonEmpty.findIndex((row,index) => index > 0 && /^(?:tonalidad|tono|key)\s*[:=\-]/i.test(row.text.trim()))
     const artistIndex = nonEmpty.findIndex((row,index) => index > 0 && /\bby\s+/i.test(row.text.trim()))
     let artist = ''
     if (artistIndex >= 0) {
       const line = nonEmpty[artistIndex].text.trim()
       const byMatch = line.match(/\bby\s+(.+)$/i)
-      artist = (byMatch?.[1] || line).trim().replace(/^\[|\]$/g, '')
+      artist = normalizeImportedLyricsLine((byMatch?.[1] || line).trim().replace(/^\[|\]$/g, ''))
     }
     const headerIndexes = new Set([0])
     if (artistIndex >= 0) headerIndexes.add(artistIndex)
@@ -187,8 +220,8 @@ async function readSongPdfInBrowser(file) {
       return true
     })
     if (!bodyRows.length) throw new Error('Detecté el encabezado, pero no encontré contenido musical debajo. Revisa si el PDF tiene texto seleccionable.')
-    const chordSheet = bodyRows.map(row => row.text).join('\n').trim()
-    const lyrics = bodyRows.filter(row => !isChordOnlyLine(row.text)).map(row => row.text.trim()).filter(Boolean).join('\n').trim()
+    const chordSheet = bodyRows.map(row => normalizeImportedMusicLine(row.text)).filter((line, index, list) => line || (index > 0 && list[index - 1])).join('\n').trim()
+    const lyrics = bodyRows.filter(row => !isChordOnlyLine(row.text)).map(row => normalizeImportedLyricsLine(row.text)).filter(Boolean).join('\n').trim()
     const warnings = []
     if (!detectImportedKey(rawTitle) && !detectImportedKey(nonEmpty.slice(0, 10).map(row => row.text.trim()).join('\n'))) warnings.push('No encontré la tonalidad en el encabezado; confirma el tono antes de guardar.')
     if (!lyrics) warnings.push('No pude separar claramente la letra de los acordes; revisa la vista previa.')
@@ -508,16 +541,26 @@ function AppShell({ user, cloud }) {
   const shellNav = isViewer
     ? [{ id: 'schedule', label: 'Mis servicios', icon: CalendarDays }, { id: 'songs', label: 'Canciones', icon: ListMusic }]
     : isAdmin
-      ? [{ id: 'services', label: 'Servicios', icon: CalendarDays }, { id: 'songs', label: 'Canciones', icon: ListMusic }, { id: 'people', label: 'Personas y permisos', icon: Users }]
-      : [{ id: 'services', label: 'Servicios', icon: CalendarDays }, { id: 'songs', label: 'Canciones', icon: ListMusic }, { id: 'teams', label: 'Equipos', icon: Guitar }]
+      ? [
+          { id: 'services', label: 'Servicios', icon: CalendarDays },
+          { id: 'schedule', label: 'Agenda', icon: CalendarDays },
+          { id: 'songs', label: 'Canciones', icon: ListMusic },
+          { id: 'teams', label: 'Equipos', icon: Guitar },
+          { id: 'people', label: 'Personas y permisos', icon: Users },
+          { id: 'settings', label: 'Configuración', icon: Settings },
+        ]
+      : [
+          { id: 'services', label: 'Servicios', icon: CalendarDays },
+          { id: 'schedule', label: 'Agenda', icon: CalendarDays },
+          { id: 'songs', label: 'Canciones', icon: ListMusic },
+          { id: 'teams', label: 'Equipos', icon: Guitar },
+        ]
 
   if (allLoading) return <div className="loading-screen"><div className="loader"/><span>Cargando tus servicios…</span></div>
   if (cloud && (!accessProfile || accessProfile.active !== true || !['Administrador', 'Editor', 'Visor'].includes(accessProfile.role))) return <AccessBlockedScreen user={user}/>
   return <div className="app-frame">
-    <header className="topbar"><button className="mobile-menu icon-btn" onClick={() => setMobileNav(!mobileNav)}><Menu size={20}/></button><button className="brand top-brand" onClick={() => navigate('services')}><span className="brand-mark"><img src="/planningband-logo.svg" alt="" /></span><span>PlanningBand</span><ChevronDown size={14} className="brand-chevron"/></button><nav className="top-nav">{shellNav.map(n => <button key={n.id} className={`top-nav-item ${page === n.id || (n.id === 'services' && page === 'service-detail') ? 'active' : ''}`} onClick={() => navigate(n.id)}>{n.label}</button>)}</nav><div className="top-spacer"/><button className="search-shortcut" onClick={() => { setPage('songs'); setMobileNav(false); window.setTimeout(() => document.querySelector('.global-search')?.focus(), 100) }}><Search size={17}/><span>Buscar</span><kbd>⌘ K</kbd></button><button className="icon-btn notification-btn" onClick={() => flash(declineCount ? `Hay ${declineCount} declinación(es) que requieren revisar reemplazos.` : 'No tienes respuestas pendientes.')} aria-label="Notificaciones"><Bell size={19}/>{declineCount>0&&<i/>}</button><div className="account-wrap"><button className="account-btn" onClick={() => setAccountMenu(!accountMenu)}><span className="avatar avatar-main">{initials(user?.email?.split('@')[0] || 'IR')}</span><span className="account-name">{user?.email?.split('@')[0] || 'Cuenta'}</span><ChevronDown size={14}/></button>{accountMenu && <div className="account-popover"><div className="account-popover-head"><strong>{user?.email || 'Sesión de usuario'}</strong><span>Conectado a Firebase</span></div>{cloud ? <button onClick={() => signOut(auth)}><LogOut size={15}/> Cerrar sesión</button> : <button onClick={() => flash('Configura Firebase para habilitar cuentas y sincronización en la nube.')}><Settings size={15}/> Configurar sincronización</button>}</div>}</div></header>
-    <div className="notice-bar"><span className="notice-dot"><Activity size={14}/></span><span>Espacio conectado a Firebase. Los cambios se sincronizan en la nube.</span><button onClick={() => setAccountMenu(false)} aria-label="Cerrar aviso"><X size={15}/></button></div>
+    <header className="topbar"><button className="brand top-brand" onClick={() => navigate('services')}><span className="brand-mark"><img src="/planningband-logo.svg" alt="" /></span><span>PlanningBand</span><ChevronDown size={14} className="brand-chevron"/></button><nav className="top-nav">{shellNav.map(n => <button key={n.id} className={`top-nav-item ${page === n.id || (n.id === 'services' && page === 'service-detail') ? 'active' : ''}`} onClick={() => navigate(n.id)}>{n.label}</button>)}</nav><div className="top-spacer"/><button className="search-shortcut" onClick={() => { setPage('songs'); setMobileNav(false); window.setTimeout(() => document.querySelector('.global-search')?.focus(), 100) }}><Search size={17}/><span>Buscar</span><kbd>⌘ K</kbd></button><button className="icon-btn help-top-btn" onClick={() => setModal({ kind: 'help' })} aria-label="Ayuda"><CircleHelp size={19}/></button><button className="icon-btn notification-btn" onClick={() => flash(declineCount ? `Hay ${declineCount} declinación(es) que requieren revisar reemplazos.` : 'No tienes respuestas pendientes.')} aria-label="Notificaciones"><Bell size={19}/>{declineCount>0&&<i/>}</button><div className="account-wrap"><button className="account-btn" onClick={() => setAccountMenu(!accountMenu)}><span className="avatar avatar-main">{initials(user?.email?.split('@')[0] || 'IR')}</span><span className="account-name">{user?.email?.split('@')[0] || 'Cuenta'}</span><ChevronDown size={14}/></button>{accountMenu && <div className="account-popover"><div className="account-popover-head"><strong>{user?.email || 'Sesión de usuario'}</strong><span>Cuenta PlanningBand</span></div><button onClick={() => { setModal({ kind: 'help' }); setAccountMenu(false) }}><CircleHelp size={15}/> Guía rápida</button>{cloud ? <button onClick={() => signOut(auth)}><LogOut size={15}/> Cerrar sesión</button> : <button onClick={() => flash('Configura Firebase para habilitar cuentas y sincronización en la nube.')}><Settings size={15}/> Configurar sincronización</button>}</div>}</div></header>
     <div className="app-body">
-      <aside className={`sidebar ${mobileNav ? 'open' : ''}`}><div className="workspace-switch"><span className="workspace-icon"><img src="/planningband-logo.svg" alt="" /></span><span><strong>Casa de Alabanza</strong><small>Equipo de alabanza</small></span><ChevronDown size={15}/></div><div className="sidebar-label">ESPACIO DE TRABAJO</div>{shellNav.map(n => { const Icon = n.icon; return <button key={n.id} className={`side-link ${page === n.id || (n.id === 'services' && page === 'service-detail') ? 'selected' : ''}`} onClick={() => navigate(n.id)}><Icon size={18}/><span>{n.label}</span>{n.id === 'services' && <span className="side-count">{services.length}</span>}</button> })}<div className="sidebar-divider"/><div className="sidebar-label">HERRAMIENTAS</div>{!isViewer && <button className={`side-link ${page === 'schedule' ? 'selected' : ''}`} onClick={() => navigate('schedule')}><CalendarDays size={18}/><span>Vista de agenda</span></button>}{canEdit && <button className={`side-link ${page === 'teams' ? 'selected' : ''}`} onClick={() => navigate('teams')}><Guitar size={18}/><span>Equipos</span></button>}{isAdmin && <button className={`side-link ${page === 'settings' ? 'selected' : ''}`} onClick={() => navigate('settings')}><Settings size={18}/><span>Configuración</span></button>}<div className="sidebar-bottom"><div className="help-card"><div className="help-icon"><CircleHelp size={17}/></div><strong>¿Necesitas ayuda?</strong><p>Organiza a tu equipo con todo en un solo lugar.</p><button onClick={() => setModal({ kind: 'help' })}>Ver guía rápida <ArrowRight size={14}/></button></div><div className="sidebar-user"><span className="avatar avatar-small">{initials(user?.email?.split('@')[0] || 'IR')}</span><div><strong>{user?.email?.split('@')[0] || 'Usuario'}</strong><small>{user ? user.email : 'Administrador'}</small></div><button className="icon-btn subtle" onClick={() => setAccountMenu(!accountMenu)}><MoreHorizontal size={18}/></button></div></div></aside>
       <main className="main-content">
         {storeError && <div className="error-banner"><ShieldCheck size={16}/>{storeError}</div>}
         {page === 'services' && canEdit && <ServicesPage services={services} serviceTypes={serviceTypes} songs={songs} people={people} isAdmin={isAdmin} monthCursor={monthCursor} setMonthCursor={setMonthCursor} selectedDay={selectedDay} setSelectedDay={setSelectedDay} expandedTypes={expandedTypes} setExpandedTypes={setExpandedTypes} setModal={setModal} createService={createService} openService={s => { setSelectedServiceId(s.id); setServiceTab('order'); navigate('service-detail') }} />}
@@ -531,7 +574,6 @@ function AppShell({ user, cloud }) {
         {page === 'settings' && isAdmin && <SettingsPage user={user} services={services} flash={flash} />}
       </main>
     </div>
-    <div className="utility-rail"><button onClick={() => setModal({ kind: 'help' })} aria-label="Ayuda"><CircleHelp size={19}/></button><button onClick={() => flash(declineCount ? `Hay ${declineCount} declinación(es) que requieren revisar reemplazos.` : 'No tienes respuestas pendientes.')} aria-label="Notificaciones"><Bell size={19}/></button><button onClick={() => navigate('schedule')} aria-label="Agenda"><CalendarDays size={19}/></button><button onClick={() => navigate('songs')} aria-label="Canciones"><Music2 size={19}/></button><button onClick={() => setModal({ kind: 'help' })} aria-label="Ideas"><Sparkles size={19}/></button></div>
     <AppEventsBridge onNavigate={navigate} onDuplicate={async record => { await persistService(record); setSelectedServiceId(record.id); navigate('service-detail'); flash('Servicio duplicado.') }} onDeleteService={deleteService} onSectionUpdate={async data => { await persistService(data.service); flash('Sección actualizada.') }} />
     {modal && (canEdit || modal.kind === 'song-reader') && <ModalHost modal={modal} setModal={setModal} onCreateService={createService} onUpdateService={updateService} onDeleteService={deleteService} onSaveInvitations={saveInvitations} onAddQuickSong={addQuickSong} onSaveSong={async d => { const rec = await songsStore.upsert(d); setModal(null); flash('Canción guardada. Los PDF se generan cuando cada integrante los abre.'); return rec }} onImportSongs={async records => { await Promise.all(records.map(record => songsStore.upsert(record))); setModal(null); flash(`${records.length} canción(es) importada(s) desde PDF.`) }} onDeleteSong={id => songsStore.remove(id)} onSavePerson={async d => { const { previousEmail, ...personData } = d; const saved = await peopleStore.upsert({ ...personData, role: roleName(d.role), email: String(d.email || '').trim().toLowerCase() }); if (cloud && previousEmail && previousEmail !== saved.email) await deleteDoc(doc(db, 'memberAccess', String(previousEmail).toLowerCase())); if (cloud && saved.email) { const profile = { email: saved.email, personId: saved.id, role: roleName(saved.role), active: saved.status !== 'Inactivo' }; await setDoc(doc(db, 'memberAccess', saved.email), profile, { merge: true }); if (saved.email === String(user?.email || '').toLowerCase()) setAccessProfile(profile) }; setModal(null); flash('Integrante guardado. Abre su ficha para enviarle el enlace de acceso.') }} onSaveType={async d => { await typesStore.upsert(d); setModal(null); flash('Tipo de servicio guardado.') }} onSaveTeam={async d => { await teamsStore.upsert(d); setModal(null); flash('Equipo guardado.') }} onSendInvite={sendAccountSetupLink} cloud={cloud} songs={songs} people={people} teams={teams} serviceTypes={serviceTypes} services={services} currentRole={currentRole} />}
     {notice && <div className="toast"><CheckCircle2 size={17}/>{notice}<button onClick={() => setNotice('')}><X size={14}/></button></div>}
@@ -640,7 +682,7 @@ function SongsPage({ songs, services = [], songsStore, query, setQuery, setModal
       <div className="table-meta"><span>{filtered.length} canciones</span><div>{!readOnly && <><button className="icon-btn subtle" onClick={() => exportSongs(filtered)} title="Descargar resultados filtrados en CSV"><Upload size={16}/></button><button className="icon-btn subtle" onClick={() => setSelected(selected.length === filtered.length ? [] : filtered.map(song => song.id))} title={selected.length === filtered.length ? 'Quitar selección' : 'Seleccionar resultados'}><CheckCircle2 size={16}/></button></>}</div></div>
       <div className="data-table-wrap"><table className="data-table songs-table"><thead><tr>{!readOnly && <th><input aria-label="Seleccionar todas las canciones" type="checkbox" checked={filtered.length > 0 && selected.length === filtered.length} onChange={event => setSelected(event.target.checked ? filtered.map(song => song.id) : [])}/></th>}<th>Título</th><th>Archivos</th><th>BPM</th><th>Tonalidad</th><th>Último servicio</th><th/></tr></thead><tbody>{filtered.map(song => {
         const lastService = lastScheduledService(song)
-        return <tr key={song.id}>{!readOnly && <td><input aria-label={`Seleccionar ${song.title}`} type="checkbox" checked={selected.includes(song.id)} onChange={event => setSelected(prev => event.target.checked ? [...new Set([...prev, song.id])] : prev.filter(id => id !== song.id))}/></td>}<td><button className="table-title-button" onClick={() => setModal(readOnly ? {kind:'song-reader',value:song} : {kind:'song',value:song})}><span className="song-table-icon"><Music2 size={16}/></span><span><strong>{song.title}</strong><small>{song.artist || 'Sin artista asignado'}</small></span></button></td><td><div className="file-indicators">{(song.lyrics || (song.fileVariants || []).some(file => file.kind === 'letra')) && <span title="Letra disponible"><FileText size={15}/></span>}{(song.chords || (song.fileVariants || []).some(file => file.kind === 'acordes') || (song.variants || []).length > 0) && <span title="Acordes disponibles"><Guitar size={15}/></span>}{(song.audioUrl || song.referenceUrl) && <a href={song.audioUrl || song.referenceUrl} target="_blank" rel="noreferrer" title="Abrir audio o video"><FileAudio size={15}/></a>}{!(song.lyrics || song.chords || (song.fileVariants || []).length || song.audioUrl || song.referenceUrl) && <span className="muted">—</span>}</div></td><td>{song.bpm || '—'}</td><td>{song.key ? <span className="key-pill">{song.key}</span> : '—'}</td><td className="muted">{lastService ? dateWritten(lastService.date) : 'Aún no programada'}</td><td><button className="icon-btn subtle" onClick={() => setModal(readOnly ? {kind:'song-reader',value:song} : {kind:'song',value:song})} title={readOnly ? 'Ver canción' : 'Editar canción'}>{readOnly ? <Eye size={17}/> : <MoreHorizontal size={18}/>}</button></td></tr>
+        return <tr key={song.id}>{!readOnly && <td><input aria-label={`Seleccionar ${song.title}`} type="checkbox" checked={selected.includes(song.id)} onChange={event => setSelected(prev => event.target.checked ? [...new Set([...prev, song.id])] : prev.filter(id => id !== song.id))}/></td>}<td><button className="table-title-button" onClick={() => setModal(readOnly ? {kind:'song-reader',value:song} : {kind:'song',value:song})}><span className="song-table-icon"><Music2 size={16}/></span><span><strong>{normalizeImportedLyricsLine(song.title || '')}</strong><small>{normalizeImportedLyricsLine(song.artist || 'Sin artista asignado')}</small></span></button></td><td><div className="file-indicators">{(song.lyrics || (song.fileVariants || []).some(file => file.kind === 'letra')) && <span title="Letra disponible"><FileText size={15}/></span>}{(song.chords || (song.fileVariants || []).some(file => file.kind === 'acordes') || (song.variants || []).length > 0) && <span title="Acordes disponibles"><Guitar size={15}/></span>}{(song.audioUrl || song.referenceUrl) && <a href={song.audioUrl || song.referenceUrl} target="_blank" rel="noreferrer" title="Abrir audio o video"><FileAudio size={15}/></a>}{!(song.lyrics || song.chords || (song.fileVariants || []).length || song.audioUrl || song.referenceUrl) && <span className="muted">—</span>}</div></td><td>{song.bpm || '—'}</td><td>{song.key ? <span className="key-pill">{song.key}</span> : '—'}</td><td className="muted">{lastService ? dateWritten(lastService.date) : 'Aún no programada'}</td><td><button className="icon-btn subtle" onClick={() => setModal(readOnly ? {kind:'song-reader',value:song} : {kind:'song',value:song})} title={readOnly ? 'Ver canción' : 'Editar canción'}>{readOnly ? <Eye size={17}/> : <MoreHorizontal size={18}/>}</button></td></tr>
       })}</tbody></table>{filtered.length === 0 && <div className="table-empty"><Music2 size={21}/><strong>No encontramos canciones</strong><span>Prueba otra búsqueda o agrega una canción nueva.</span></div>}</div>
       <div className="table-bottom"><span>Mostrando {filtered.length} de {songs.length} canciones</span></div>
     </div>
@@ -688,7 +730,7 @@ function ModalHost({ modal, setModal, onCreateService, onUpdateService, onDelete
     {modal.kind==='quick-song'&&<QuickSongForm value={value} saving={saving} error={error} onSubmit={d=>save(onAddQuickSong,d)} onClose={close}/>}
     {modal.kind==='service-actions'&&<div className="modal-body action-options"><button onClick={()=>{setModal({kind:'service',value});}}><Edit3 size={17}/><span><strong>Editar datos del servicio</strong><small>Cambiar fecha, hora y tipo.</small></span></button><button onClick={()=>{const copy={...value,id:uid(),title:`${value.title} (copia)`,date:addDaysISO(value.date || localTodayISO(), 7),order:(value.order||[]).map(s=>({...s,id:uid(),items:(s.items||[]).map(i=>({...i,id:uid()}))}))};window.dispatchEvent(new CustomEvent('alabanza:duplicate-service',{detail:copy}));close()}}><Copy size={17}/><span><strong>Duplicar servicio</strong><small>Crear una copia para otra fecha.</small></span></button><button className="danger-option" onClick={()=>{onDeleteService(value.id);close()}}><Trash2 size={17}/><span><strong>Eliminar servicio</strong><small>Esta acción no se puede deshacer.</small></span></button><div className="modal-form-error">Nota: las acciones se procesan desde el detalle del servicio.</div></div>}
     {modal.kind==='section-edit'&&<SectionEditForm value={value.section} onClose={close} onSave={name=>{const svc=value.service;const order=(svc.order||[]).map(s=>s.id===value.section.id?{...s,name:name.toUpperCase()}:s);window.dispatchEvent(new CustomEvent('alabanza:section-update',{detail:{service:{...svc,order}}}));close()}}/>}
-    {modal.kind==='help'&&<div className="modal-body help-modal-content"><p>Usa el menú lateral para entrar a cada área. Un flujo recomendado es:</p><ol><li><strong>Registra a los integrantes</strong> y agrúpalos en Banda, Voces y Audio.</li><li><strong>Completa el repertorio</strong> con tonalidades, BPM, letras y acordes.</li><li><strong>Crea un servicio</strong>, agrega secciones y selecciona las canciones.</li><li><strong>Asigna el equipo</strong> a cada función y comparte las notas de ensayo.</li></ol><p className="muted">La información se guarda en Firebase y solo se muestra a las cuentas autorizadas.</p><div className="modal-actions"><Btn variant="primary" onClick={close}>Entendido</Btn></div></div>}
+    {modal.kind==='help'&&<div className="modal-body help-modal-content"><p>Usa la barra superior para entrar a cada área. Un flujo recomendado es:</p><ol><li><strong>Registra a los integrantes</strong> y agrúpalos en Banda, Voces y Audio.</li><li><strong>Completa el repertorio</strong> con tonalidades, BPM, letras y acordes.</li><li><strong>Crea un servicio</strong>, agrega secciones y selecciona las canciones.</li><li><strong>Asigna el equipo</strong> a cada función y comparte las notas de ensayo.</li></ol><p className="muted">La información se guarda en Firebase y solo se muestra a las cuentas autorizadas.</p><div className="modal-actions"><Btn variant="primary" onClick={close}>Entendido</Btn></div></div>}
   </div></div>
 }
 
@@ -751,8 +793,8 @@ function SongPdfImportForm({ existingSongs = [], onSubmit, onClose, saving, erro
   return <div className="modal-form pdf-import-form">
     <div className="song-editor-block" style={{ gap: 8 }}>
       <div className="form-section-heading"><div><strong>Importación local</strong><small>Selecciona uno o varios PDF de tu repertorio antiguo. Se analizan en tu navegador; los archivos no se suben ni se guardan en Firebase.</small></div></div>
-      <label className="pdf-import-picker" style={{ display:'flex', alignItems:'center', gap:12, padding:14, border:'1px dashed #79c9c4', borderRadius:12, background:'#f1fbfa', cursor:'pointer', flexWrap:'wrap' }}>
-        <FileText size={21} color="#128f8b"/>
+      <label className="pdf-import-picker" style={{ display:'flex', alignItems:'center', gap:12, padding:14, border:'1px dashed #cbd5d1', borderRadius:12, background:'#ffffff', cursor:'pointer', flexWrap:'wrap' }}>
+        <FileText size={21}/>
         <span style={{ flex:'1 1 180px', minWidth:0 }}><strong>{reading?'Leyendo archivos…':'Seleccionar PDF'}</strong><small style={{ display:'block', color:'#607574', marginTop:3 }}>Puedes seleccionar varios archivos a la vez.</small></span>
         <input type="file" accept=".pdf,application/pdf" multiple disabled={reading} onChange={chooseFiles} style={{ maxWidth:'100%', fontSize:13 }}/>
       </label>
@@ -776,9 +818,13 @@ function SongPdfImportForm({ existingSongs = [], onSubmit, onClose, saving, erro
           <label>Tonalidad detectada<select value={record.key} onChange={e=>update(record.id,{key:e.target.value})}>{[...new Set([...keyOptions, record.key])].map(key=><option key={key}>{key}</option>)}</select></label>
           <label>Duración (opcional)<input value={record.duration} onChange={e=>update(record.id,{duration:e.target.value})} placeholder="4:30"/></label>
         </div>
-        <div className="form-two">
-          <label>Letra extraída<textarea rows="6" value={record.lyrics} onChange={e=>update(record.id,{lyrics:e.target.value})} placeholder="Letra, con secciones como INTRO y VERSO" style={{ minHeight:130 }}/></label>
-          <label>Acordes y letra alineados<textarea rows="8" value={record.chords} onChange={e=>update(record.id,{chords:e.target.value})} placeholder="Acordes sobre la letra, con espacios preservados" style={{ minHeight:170, fontFamily:'ui-monospace,SFMono-Regular,Menlo,monospace', whiteSpace:'pre', overflowX:'auto' }}/></label>
+        <div className="form-two song-import-editors">
+          <label>Letra extraída<textarea rows="6" value={record.lyrics} onChange={e=>update(record.id,{lyrics:e.target.value})} placeholder="Letra, con secciones como INTRO y VERSO" style={{ minHeight:160 }}/></label>
+          <label>Acordes y letra alineados<textarea rows="8" value={record.chords} onChange={e=>update(record.id,{chords:e.target.value})} placeholder="Acordes sobre la letra, con espacios preservados" style={{ minHeight:190, fontFamily:'ui-monospace,SFMono-Regular,Menlo,monospace', whiteSpace:'pre', overflowX:'auto' }}/></label>
+        </div>
+        <div className="song-import-preview">
+          <div className="form-section-heading"><div><strong>Vista previa para los músicos</strong><small>Comprueba que los acordes queden sobre la línea correcta y que la letra se lea sin puntos de relleno. Puedes corregir los campos de arriba antes de guardar.</small></div></div>
+          <pre className="reader-content chord-content import-live-preview">{record.chords || 'La vista previa aparecerá cuando se extraiga el contenido del PDF.'}</pre>
         </div>
       </div>
     })}
@@ -789,16 +835,16 @@ function SongPdfImportForm({ existingSongs = [], onSubmit, onClose, saving, erro
 }
 
 function SongForm({ value, onSubmit, onClose, onDelete, saving, error }) {
-  const [title,setTitle]=useState(value.title||'')
-  const [artist,setArtist]=useState(value.artist||'')
+  const [title,setTitle]=useState(normalizeImportedLyricsLine(value.title||''))
+  const [artist,setArtist]=useState(normalizeImportedLyricsLine(value.artist||''))
   const [key,setKey]=useState(value.key||'C')
   const [bpm,setBpm]=useState(value.bpm||'')
   const [duration,setDuration]=useState(value.duration||'')
-  const [lyrics,setLyrics]=useState(value.lyrics||'')
-  const [chords,setChords]=useState(value.chords||'')
+  const [lyrics,setLyrics]=useState(normalizeImportedLyricsText(value.lyrics||''))
+  const [chords,setChords]=useState(normalizeImportedMusicText(value.chords||''))
   const [tags,setTags]=useState((value.tags||[]).join(', '))
   const [referenceUrl,setReferenceUrl]=useState(value.referenceUrl||value.audioUrl||'')
-  const [variants,setVariants]=useState(value.variants||[])
+  const [variants,setVariants]=useState((value.variants||[]).map(variant=>({...variant,chords:normalizeImportedMusicText(variant.chords||'')})))
   const [fileVariants,setFileVariants]=useState(value.fileVariants||[])
   const [targetKey,setTargetKey]=useState(value.key||'G')
   const [pdfUrl,setPdfUrl]=useState('')
@@ -893,15 +939,17 @@ function QuickSongForm({ value, onSubmit, onClose, saving, error }) {
 
 function SongReader({ song, onClose }) {
   const [selectedKey,setSelectedKey]=useState(song.key||'C')
+  const readableLyrics = normalizeImportedLyricsText(song.lyrics || '')
+  const readableChords = normalizeImportedMusicText(song.chords || '')
   const chordVariant=(song.variants||[]).find(v=>v.key===selectedKey)
-  const chordText=chordVariant?.chords || transposeChordText(song.chords||'',song.key||'C',selectedKey)
+  const chordText=normalizeImportedMusicText(chordVariant?.chords || transposeChordText(readableChords,song.key||'C',selectedKey))
   const pdfs=(song.fileVariants||[]).filter(file=>file.key===selectedKey)
   const originalPdfs=(song.fileVariants||[])
   return <div className="song-reader-body">
     <div className="reader-song-heading"><div className="song-table-icon large"><Music2 size={22}/></div><div><h3>{song.title}</h3><p>{song.artist||'Repertorio de la iglesia'} · Original: {song.key||'Sin tono'}</p></div></div>
     {song.referenceUrl&&<a className="reference-link" href={song.referenceUrl} target="_blank" rel="noreferrer"><Play size={16}/>Abrir referencia de audio/video</a>}
     <label className="reader-key-select">Tonalidad para consultar<select value={selectedKey} onChange={e=>setSelectedKey(e.target.value)}>{[...new Set([...keyOptions, song.key||'C', ...(song.variants||[]).map(v=>v.key), ...originalPdfs.map(v=>v.key)].filter(Boolean))].map(k=><option key={k}>{k}</option>)}</select></label>
-    <section className="reader-section"><div className="form-section-heading"><strong>Letra</strong><button className="text-link" onClick={()=>openPrintDocument(`${song.title} — Letra`,song.lyrics,`Tonalidad original: ${song.key||'No indicada'}`)}><FileText size={15}/> Generar PDF de letra</button></div>{song.lyrics?<pre className="reader-content">{song.lyrics}</pre>:<p className="muted">No se ha ingresado la letra como texto. Revisa los PDF enlazados más abajo.</p>}</section>
+    <section className="reader-section"><div className="form-section-heading"><strong>Letra</strong><button className="text-link" onClick={()=>openPrintDocument(`${song.title} — Letra`,readableLyrics,`Tonalidad original: ${song.key||'No indicada'}`)}><FileText size={15}/> Generar PDF de letra</button></div>{readableLyrics?<pre className="reader-content">{readableLyrics}</pre>:<p className="muted">No se ha ingresado la letra como texto. Revisa los PDF enlazados más abajo.</p>}</section>
     <section className="reader-section"><div className="form-section-heading"><strong>Acordes · {selectedKey}</strong><button className="text-link" onClick={()=>openPrintDocument(`${song.title} — Acordes ${selectedKey}`,chordText,`Tonalidad: ${selectedKey}`,true)}><FileText size={15}/> Generar PDF de acordes</button></div>{chordText?<pre className="reader-content chord-content">{chordText}</pre>:<p className="muted">No hay acordes guardados.</p>}</section>
     {!!pdfs.length&&<section className="reader-section"><div className="form-section-heading"><strong>PDF disponibles en {selectedKey}</strong></div>{pdfs.map(file=><a className="reader-pdf-link" key={file.id||file.url} href={file.url} target="_blank" rel="noreferrer"><FileText size={17}/><span><strong>{file.label||`PDF ${file.kind}`}</strong><small>{file.kind==='letra'?'Solo letra':'Acordes / partitura'}</small></span><ArrowRight size={15}/></a>)}</section>}
     {originalPdfs.some(file=>file.key!==selectedKey)&&<section className="reader-section"><strong>Otras tonalidades con PDF original</strong>{originalPdfs.filter(file=>file.key!==selectedKey).map(file=><a className="reader-pdf-link" key={file.id||file.url} href={file.url} target="_blank" rel="noreferrer"><FileText size={16}/><span>{file.label||`PDF ${file.kind} · ${file.key}`}</span><small>{file.key}</small></a>)}</section>}
@@ -935,7 +983,7 @@ function ViewerDashboard({ services, person, songs, responses = [], onRespond })
           const song=songs.find(s=>s.id===item.songId)
           const chordVariant=song?.variants?.find(v=>v.key===(item.key||song.key))
           const externalPdf=(song?.fileVariants||[]).filter(file=>file.key===(item.key||song.key))
-          return <div className="viewer-song-row" key={item.id||`${item.title}-${index}`}><span className="viewer-song-number">{String(index+1).padStart(2,'0')}</span><div><strong>{item.title}</strong><small>{item.key||song?.key||'Tono pendiente'}{item.duration?` · ${item.duration}`:''}</small>{item.description&&<p>{item.description}</p>}</div><div className="viewer-song-actions">{song?.lyrics&&<button className="icon-btn bordered" title="Ver o generar PDF de letra" onClick={()=>openPrintDocument(`${song.title} — Letra`,song.lyrics,`Servicio: ${service.title}`)}><FileText size={16}/></button>}{(song?.chords||chordVariant)&&<button className="icon-btn bordered" title="Ver o generar PDF de acordes" onClick={()=>openPrintDocument(`${song.title} — Acordes ${item.key||song.key}`,chordVariant?.chords||transposeChordText(song.chords,song.key,item.key||song.key),`Servicio: ${service.title}`,true)}><Music2 size={16}/></button>}{externalPdf.map(file=><a className="icon-btn bordered" title={file.label||'Abrir PDF'} href={file.url} target="_blank" rel="noreferrer" key={file.id||file.url}><FileText size={16}/></a>)}{song?.referenceUrl&&<a className="icon-btn bordered" title="Abrir audio o video" href={song.referenceUrl} target="_blank" rel="noreferrer"><Play size={16}/></a>}</div></div>
+          return <div className="viewer-song-row" key={item.id||`${item.title}-${index}`}><span className="viewer-song-number">{String(index+1).padStart(2,'0')}</span><div><strong>{item.title}</strong><small>{item.key||song?.key||'Tono pendiente'}{item.duration?` · ${item.duration}`:''}</small>{item.description&&<p>{item.description}</p>}</div><div className="viewer-song-actions">{song?.lyrics&&<button className="icon-btn bordered" title="Ver o generar PDF de letra" onClick={()=>openPrintDocument(`${song.title} — Letra`,normalizeImportedLyricsText(song.lyrics||''),`Servicio: ${service.title}`)}><FileText size={16}/></button>}{(song?.chords||chordVariant)&&<button className="icon-btn bordered" title="Ver o generar PDF de acordes" onClick={()=>openPrintDocument(`${song.title} — Acordes ${item.key||song.key}`,normalizeImportedMusicText(chordVariant?.chords||transposeChordText(normalizeImportedMusicText(song.chords||''),song.key,item.key||song.key)),`Servicio: ${service.title}`,true)}><Music2 size={16}/></button>}{externalPdf.map(file=><a className="icon-btn bordered" title={file.label||'Abrir PDF'} href={file.url} target="_blank" rel="noreferrer" key={file.id||file.url}><FileText size={16}/></a>)}{song?.referenceUrl&&<a className="icon-btn bordered" title="Abrir audio o video" href={song.referenceUrl} target="_blank" rel="noreferrer"><Play size={16}/></a>}</div></div>
         }):<div className="viewer-no-songs">Todavía no se han agregado canciones a este servicio.</div>}</div>
         {response.status==='declined'&&<div className="decline-saved"><strong>Motivo informado</strong><p>{response.reason}</p></div>}
         {response.status==='pending'&&<div className="viewer-response-actions"><button className="btn primary" onClick={()=>onRespond(service.id,person?.id,'accepted','')}><CheckCircle2 size={16}/>Aceptar convocatoria</button><button className="btn" onClick={()=>setDeclining(declining===service.id?null:service.id)}><X size={16}/>Declinar</button></div>}
