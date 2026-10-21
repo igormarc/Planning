@@ -26,6 +26,15 @@ const fmtDate = (value, opts = { weekday: 'long', day: 'numeric', month: 'long',
 const monthName = (date) => new Intl.DateTimeFormat('es-CL', { month: 'long', year: 'numeric' }).format(date)
 const initials = (name = '') => name.trim().split(/\s+/).slice(0, 2).map(p => p[0] || '').join('').toUpperCase()
 const dateWritten = value => value ? new Intl.DateTimeFormat('es-CL', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${value}T12:00:00`)) : 'Fecha por confirmar'
+// Convert the administrator's contact phone into the digits-only format required by wa.me.
+// Chilean local 9-digit numbers are normalized to country code 56; international numbers are preserved.
+const normalizeWhatsAppNumber = value => {
+  let digits = String(value || '').replace(/\D/g, '')
+  if (digits.startsWith('00')) digits = digits.slice(2)
+  if (digits.startsWith('0') && digits.length === 10) digits = digits.slice(1)
+  if (digits.length === 9) digits = `56${digits}`
+  return digits.length >= 10 && digits.length <= 15 ? digits : ''
+}
 const roleName = role => ['Administrador','Editor','Visor'].includes(role) ? role : (role === 'Admin' ? 'Administrador' : role === 'Editor' ? 'Editor' : 'Visor')
 const PITCHES = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B']
 const pitchValue = note => ({C:0,'B#':0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,Fb:4,'E#':5,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11,Cb:11}[note] ?? 0)
@@ -403,6 +412,13 @@ function AppShell({ user, cloud }) {
   const adminNotificationEmail = isAdmin
     ? String(user?.email || '').trim().toLowerCase()
     : String(people.find(person => roleName(person.role) === 'Administrador' && person.status !== 'Inactivo')?.email || '').trim().toLowerCase()
+  // Prefer the logged-in administrator's phone; otherwise use the first active administrator with a phone.
+  // It is copied onto service documents so Visor accounts can create a WhatsApp link without reading other people's profiles.
+  const adminNotificationWhatsApp = String(
+    (isAdmin && currentPerson?.phone) ||
+    people.find(person => roleName(person.role) === 'Administrador' && person.status !== 'Inactivo' && String(person.phone || '').trim())?.phone ||
+    ''
+  ).trim()
   const [page, setPage] = useState('services')
   const [selectedServiceId, setSelectedServiceId] = useState('')
   const [serviceTab, setServiceTab] = useState('order')
@@ -478,10 +494,11 @@ function AppShell({ user, cloud }) {
   const persistService = async (record) => {
     const assignedIds = [...new Set([...(record.invitedPersonIds || []), ...Object.values(record.teamAssignments || {}).flat()])]
     const notificationEmail = String(record.notificationEmail || adminNotificationEmail || '').trim().toLowerCase()
-    const normalized = { ...record, notificationEmail, invitedPersonIds: assignedIds }
+    const notificationWhatsApp = String(adminNotificationWhatsApp || record.notificationWhatsApp || '').trim()
+    const normalized = { ...record, notificationEmail, notificationWhatsApp, invitedPersonIds: assignedIds }
     await servicesStore.upsert(normalized)
 
-    // Keep a separate response document for every person/service; store the admin recipient for decline notifications.
+    // Keep a separate response document for every person/service; preserve legacy email metadata for compatibility.
     for (const personId of assignedIds) {
       const id = `${normalized.id}_${personId}`
       const existingResponse = responsesStore.items.find(r => r.id === id || (r.serviceId === normalized.id && r.personId === personId))
@@ -552,32 +569,22 @@ function AppShell({ user, cloud }) {
       : `${selectedEntries.length} convocatoria(s) guardada(s) y ${queued} correo(s) puestos en cola para envío.`)
   }
   const saveResponse = async (serviceId, personId, status, reason = '') => {
-    if (!serviceId || !personId || (status === 'declined' && !reason.trim())) return
-    if (isViewer && personId !== accessProfile?.personId) return
+    if (!serviceId || !personId || (status === 'declined' && !reason.trim())) return { saved: false }
+    if (isViewer && personId !== accessProfile?.personId) return { saved: false }
     const service = services.find(item => item.id === serviceId)
-    if (isViewer && !(service?.invitedPersonIds || []).includes(personId)) return
+    if (isViewer && !(service?.invitedPersonIds || []).includes(personId)) return { saved: false }
     const previous = responsesStore.items.find(item => item.id === `${serviceId}_${personId}`)
+    // Keep this legacy field for existing response documents, but declines no longer enqueue an email.
     const adminEmail = String(previous?.adminEmail || service?.notificationEmail || adminNotificationEmail || '').trim().toLowerCase()
     const responsePayload = { id: `${serviceId}_${personId}`, serviceId, personId, status, reason: reason.trim(), respondedAt: new Date().toISOString() }
     if (!previous || previous.adminEmail) responsePayload.adminEmail = adminEmail
     await responsesStore.upsert(responsePayload)
     if (status === 'declined') {
-      if (!adminEmail) { flash('Declinación guardada, pero falta configurar el correo de administración del servicio.'); return }
-      const person = people.find(item => item.id === personId) || currentPerson
-      const subject = 'Citación declinada · PlanningBand'
-      const dateText = dateWritten(service?.date)
-      const timeText = service?.startTime || 'Horario por confirmar'
-      const text = `La citación fue declinada.\nIntegrante: ${person?.firstName || ''} ${person?.lastName || ''} (${user?.email || ''})\nServicio: ${service?.title || serviceId}\nFecha: ${dateText}\nHora: ${timeText}\nMotivo: ${reason.trim()}`
-      const html = `<div style="font-family:Arial,sans-serif;color:#111827;line-height:1.6"><h2>Citación declinada · PlanningBand</h2><p><strong>Integrante:</strong> ${escapeEmailHtml(`${person?.firstName || ''} ${person?.lastName || ''}`)} (${escapeEmailHtml(user?.email || '')})</p><p><strong>Servicio:</strong> ${escapeEmailHtml(service?.title || serviceId)}</p><p><strong>Fecha:</strong> ${escapeEmailHtml(dateText)} · <strong>Hora:</strong> ${escapeEmailHtml(timeText)}</p><p><strong>Motivo de la declinación:</strong><br/>${escapeEmailHtml(reason.trim()).replace(/\n/g,'<br/>')}</p><p><a href="${escapeEmailHtml(window.location.origin)}">Abrir PlanningBand</a></p></div>`
-      try {
-        await queuePlanningEmail({ to: adminEmail, subject, text, html, kind: 'decline-notice', serviceId, personId, responseId: `${serviceId}_${personId}`, adminEmail })
-      } catch (error) {
-        console.error('Declinación guardada, pero no se pudo encolar el correo:', error)
-        flash('La declinación quedó registrada en PlanningBand, pero no se pudo encolar el correo al administrador. Revisa la extensión y las reglas de correo.')
-        return
-      }
+      flash('Declinación registrada. Se abrirá WhatsApp para avisar a tu líder.')
+      return { saved: true, notificationWhatsApp: String(service?.notificationWhatsApp || '').trim() }
     }
-    flash(status === 'accepted' ? 'Confirmaste tu asistencia.' : 'Declinación guardada y aviso al administrador puesto en cola.')
+    flash('Confirmaste tu asistencia.')
+    return { saved: true }
   }
   const addQuickSong = async data => {
     const service = services.find(s => s.id === data.serviceId)
@@ -1079,9 +1086,32 @@ function ViewerDashboard({ services, person, songs, responses = [], onRespond })
   const invitedServices = ordered.filter(service => (service.invitedPersonIds || []).includes(person?.id))
   const submitDecline=async service=>{
     const reason=(reasons[service.id]||'').trim()
-    if(!reason){alert('Escribe el motivo antes de declinar la convocatoria.');return}
-    await onRespond(service.id,person.id,'declined',reason)
-    setDeclining(null)
+    if(!reason){alert('Escribe el aviso de tu ausencia antes de declinar la convocatoria.');return}
+    const initialPhone = normalizeWhatsAppNumber(service.notificationWhatsApp || '')
+    // Open the tab synchronously from the click so popup blockers do not prevent WhatsApp from opening after the save.
+    const whatsappWindow = initialPhone ? window.open('about:blank', '_blank') : null
+    if (whatsappWindow) whatsappWindow.opener = null
+    try {
+      const result = await onRespond(service.id,person.id,'declined',reason)
+      if (!result?.saved) { if (whatsappWindow && !whatsappWindow.closed) whatsappWindow.close(); return }
+      setDeclining(null)
+      const phone = normalizeWhatsAppNumber(result.notificationWhatsApp || service.notificationWhatsApp || '')
+      if (!phone) {
+        if (whatsappWindow && !whatsappWindow.closed) whatsappWindow.close()
+        alert('Tu declinación quedó registrada en PlanningBand, pero falta el número de WhatsApp del administrador. Pide al administrador que registre su teléfono en Personas y permisos y vuelva a guardar este servicio.')
+        return
+      }
+      const fullName = `${person?.firstName || ''} ${person?.lastName || ''}`.trim() || 'Integrante de PlanningBand'
+      const timeText = service.startTime || 'horario por confirmar'
+      const text = `Hola, soy ${fullName}.\n\nTe aviso que no podré asistir al servicio \"${service.title}\", el ${dateWritten(service.date)} a las ${timeText}.\n\nAviso de ausencia para mi líder:\n${reason}\n\nEnviado desde PlanningBand.`
+      const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
+      if (whatsappWindow && !whatsappWindow.closed) whatsappWindow.location.href = whatsappUrl
+      else window.location.assign(whatsappUrl)
+    } catch (error) {
+      if (whatsappWindow && !whatsappWindow.closed) whatsappWindow.close()
+      console.error('No se pudo registrar la declinación:', error)
+      alert('No se pudo guardar tu declinación. Comprueba tu conexión e inténtalo otra vez.')
+    }
   }
   return <>
     <div className="context-strip"><span className="context-dot"/> MI ESPACIO <span className="context-sep">/</span> CONVOCATORIAS</div>
@@ -1103,7 +1133,7 @@ function ViewerDashboard({ services, person, songs, responses = [], onRespond })
         }):<div className="viewer-no-songs">Todavía no se han agregado canciones a este servicio.</div>}</div>
         {isInvited && response.status==='declined'&&<div className="decline-saved"><strong>Motivo informado</strong><p>{response.reason}</p></div>}
         {isInvited && response.status==='pending'&&<div className="viewer-response-actions"><button className="btn primary" onClick={()=>onRespond(service.id,person?.id,'accepted','')}><CheckCircle2 size={16}/>Aceptar convocatoria</button><button className="btn" onClick={()=>setDeclining(declining===service.id?null:service.id)}><X size={16}/>Declinar</button></div>}
-        {isInvited && declining===service.id&&<div className="decline-form"><label>Motivo para declinar (obligatorio)<textarea rows="3" value={reasons[service.id]||''} onChange={e=>setReasons(prev=>({...prev,[service.id]:e.target.value}))} placeholder="Cuéntanos por qué no podrás asistir…"/></label><div className="decline-form-actions"><button className="btn" onClick={()=>setDeclining(null)}>Cancelar</button><button className="btn primary" disabled={!(reasons[service.id]||'').trim()} onClick={()=>submitDecline(service)}>Enviar motivo y declinar</button></div></div>}
+        {isInvited && declining===service.id&&<div className="decline-form"><label>Aviso de ausencia para tu líder (obligatorio)<textarea rows="3" value={reasons[service.id]||''} onChange={e=>setReasons(prev=>({...prev,[service.id]:e.target.value}))} placeholder="Escribe aquí el aviso de tu ausencia para tu líder…"/><small>El aviso quedará registrado en PlanningBand y se abrirá WhatsApp con el mensaje preparado. Recuerda pulsar Enviar dentro de WhatsApp.</small></label><div className="decline-form-actions"><button className="btn" onClick={()=>setDeclining(null)}>Cancelar</button><button className="btn primary" disabled={!(reasons[service.id]||'').trim()} onClick={()=>submitDecline(service)}><MessageSquare size={16}/>Registrar y avisar por WhatsApp</button></div></div>}
         <div className="viewer-service-footer"><Bell size={15}/>{isInvited?'Tu respuesta se verá en el panel del administrador para coordinar un reemplazo si hace falta.':'Puedes consultar el servicio y sus canciones; todavía no tienes una asignación en este servicio.'}</div>
       </article>
     })}</div> : <div className="panel viewer-empty"><CalendarDays size={26}/><h2>Aún no tienes convocatorias</h2><p>Cuando el administrador te asigne a un servicio, verás aquí la fecha, tu posición, las canciones y la opción de confirmar o declinar.</p></div>}
