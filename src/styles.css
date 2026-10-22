@@ -5259,3 +5259,123 @@ h3 { font-size: 18px; }
   .team-plan-head { align-items: flex-start; flex-direction: column; }
   .team-plan-head .heading-actions { width: 100%; flex-wrap: wrap; }
 }
+
+
+/* PlanningBand: roster visual simplificado según la referencia solicitada.
+   Solo cambia presentación; la selección, persistencia y asignaciones usan los handlers existentes. */
+.team-department-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  align-items: stretch;
+}
+.team-department-column {
+  border-color: #d9ded9;
+  border-radius: 10px;
+}
+.team-department-head {
+  padding: 18px 18px 16px;
+  gap: 12px;
+  background: #f4f5f4;
+}
+.team-department-head h3 {
+  color: #3b3b3b;
+  font-size: 20px;
+  letter-spacing: .04em;
+}
+.team-department-counts { gap: 12px; }
+.team-response-count {
+  min-width: 44px;
+  padding: 7px 9px;
+  font-size: 15px;
+  border-radius: 8px;
+}
+.instrument-role-block { border-bottom: 1px solid #e4e4e4; }
+.instrument-role-head {
+  padding: 13px 16px;
+  min-height: 54px;
+  background: #f5f5f5;
+  border-bottom: 1px solid #e6e6e6;
+}
+.instrument-role-title h4 {
+  color: #606060;
+  font-size: 17px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+.team-department-column .assigned-members {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 13px;
+}
+.team-department-column .assigned-member.assigned-member-status {
+  display: flex !important;
+  grid-template-columns: none !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 52px;
+  margin: 0;
+  padding: 11px 12px !important;
+  border: 1px solid #d8ded8;
+  border-left-width: 5px;
+  border-radius: 8px;
+  background: #fff;
+}
+.team-department-column .assigned-member.assigned-member-status.accepted {
+  border-color: #a9d5b1;
+  border-left-color: #3e8b3e;
+  background: #edf8ef;
+}
+.team-department-column .assigned-member.assigned-member-status.declined {
+  border-color: #e8b2b2;
+  border-left-color: #c93636;
+  background: #fff0f0;
+}
+.team-department-column .assigned-member.assigned-member-status.pending {
+  border-color: #e8d18b;
+  border-left-color: #d99a08;
+  background: #fff8df;
+}
+.team-department-column .assigned-member-name {
+  display: block;
+  min-width: 0;
+  color: #202020;
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.team-department-column .remove-assignee {
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  background: rgba(255,255,255,.8);
+}
+.team-department-column .member-empty {
+  padding: 13px 3px;
+  font-size: 13px;
+}
+.team-department-column .department-empty {
+  padding: 20px 16px;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+@media (max-width: 1250px) {
+  .team-department-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
+  .team-department-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .team-department-head { padding: 14px; }
+  .team-department-head h3 { font-size: 18px; }
+  .team-response-count { font-size: 13px; }
+}
+@media (max-width: 620px) {
+  .team-department-grid { grid-template-columns: minmax(0, 1fr); }
+  .team-department-head h3 { font-size: 19px; }
+  .instrument-role-title h4 { font-size: 16px; }
+  .team-department-column .assigned-member.assigned-member-status { min-height: 50px; }
+  .team-department-column .assigned-member-name { font-size: 16px; }
+}

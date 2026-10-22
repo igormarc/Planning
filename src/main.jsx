@@ -724,10 +724,33 @@ function ServiceDetail({ service, servicesStore, cloud, isAdmin = false, canEdit
     pending: invitedIds.filter(id => responseFor(id) === 'pending').length,
     declined: invitedIds.filter(id => responseFor(id) === 'declined').length,
   }
-  const groups = roleBuckets.length ? roleBuckets : [{name:'Bajo',instruments:['Bajo'],memberIds:[]},{name:'Batería',instruments:['Batería'],memberIds:[]},{name:'Guitarra acústica',instruments:['Guitarra acústica'],memberIds:[]},{name:'Guitarra eléctrica',instruments:['Guitarra eléctrica'],memberIds:[]},{name:'Keys',instruments:['Teclado'],memberIds:[]},{name:'Ministro',instruments:['Voz'],memberIds:[]},{name:'Coros',instruments:['Voz'],memberIds:[]},{name:'FOH',instruments:['Audio'],memberIds:[]}]
-  // Display-only grouping for the Planning Center-style column layout. Uses the existing assignment data and response statuses.
-  const teamColumns = [...new Set(groups.map(group => group.teamName || 'Otros equipos'))].map(teamName => {
-    const columnGroups = groups.filter(group => (group.teamName || 'Otros equipos') === teamName)
+  const groups = roleBuckets.length ? roleBuckets : [
+    {name:'Bajo',teamName:'Banda',instruments:['Bajo'],memberIds:[]},
+    {name:'Batería',teamName:'Banda',instruments:['Batería'],memberIds:[]},
+    {name:'Guitarra acústica',teamName:'Banda',instruments:['Guitarra acústica'],memberIds:[]},
+    {name:'Guitarra eléctrica',teamName:'Banda',instruments:['Guitarra eléctrica'],memberIds:[]},
+    {name:'Keys',teamName:'Banda',instruments:['Teclado'],memberIds:[]},
+    {name:'Ministro',teamName:'Voces-Coros',instruments:['Voz'],memberIds:[]},
+    {name:'Coros',teamName:'Voces-Coros',instruments:['Voz'],memberIds:[]},
+    {name:'FOH',teamName:'Sonido',instruments:['Audio'],memberIds:[]},
+  ]
+  // Agrupación exclusivamente visual: las claves originales de los equipos, roles y asignaciones no se modifican.
+  const normalizeDepartmentText = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  const displayDepartment = group => {
+    const teamLabel = normalizeDepartmentText(group.teamName)
+    const roleLabel = normalizeDepartmentText(group.name)
+    if (/(^| )(banda|band|instrumental|instrumentos)( |$)/.test(teamLabel)) return 'Banda'
+    if (/(voces|coros|vocal|coro)( |$)/.test(teamLabel)) return 'Voces-Coros'
+    if (/(audio|sonido|foh|sonidistas)( |$)/.test(teamLabel)) return 'Sonido'
+    if (/(bajo|bateria|guitarra|teclado|keys|piano|instrument)/.test(roleLabel)) return 'Banda'
+    if (/(voz|coro|ministro|vocal|cantante)/.test(roleLabel)) return 'Voces-Coros'
+    if (/(audio|sonido|foh|tecnico)/.test(roleLabel)) return 'Sonido'
+    return String(group.teamName || 'Otros equipos').replace(/^[-\s]+|[-\s]+$/g, '') || 'Otros equipos'
+  }
+  const preferredDepartments = ['Banda', 'Voces-Coros', 'Sonido']
+  const departmentNames = [...preferredDepartments, ...new Set(groups.map(displayDepartment).filter(name => !preferredDepartments.includes(name)))]
+  const teamColumns = departmentNames.map(teamName => {
+    const columnGroups = groups.filter(group => displayDepartment(group) === teamName)
     const personIds = [...new Set(columnGroups.flatMap(group => service.teamAssignments?.[group.name] ?? group.memberIds ?? []))]
     return {
       teamName,
@@ -779,6 +802,7 @@ function ServiceDetail({ service, servicesStore, cloud, isAdmin = false, canEdit
             </div>
           </header>
           <div className="team-department-roles">
+            {!column.groups.length && <div className="department-empty">No hay posiciones configuradas para este equipo.</div>}
             {column.groups.map((g,idx)=>{
               const instrument = g.name
               const selectedIds = service.teamAssignments?.[instrument] ?? g.memberIds ?? []
@@ -786,17 +810,14 @@ function ServiceDetail({ service, servicesStore, cloud, isAdmin = false, canEdit
               const eligible = people.filter(p=>(p.instruments||[]).some(i=>(g.instruments||[g.name]).includes(i)) || (g.name==='Coros'&&p.teams?.includes('Voces')) || (g.name==='Ministro'&&p.teams?.includes('Voces')) || (g.name==='FOH'&&p.teams?.includes('Audio')))
               return <section className="instrument-role-block" key={`${column.teamName}-${g.name}-${idx}`}>
                 <header className="instrument-role-head">
-                  <div className={`instrument-icon tint-${(columnIdx + idx)%5}`}>{instrumentIcon(g.name)}</div>
-                  <div className="instrument-role-title"><h4>{g.name}</h4><small>{selectedPeople.length} {selectedPeople.length===1?'integrante asignado':'integrantes asignados'}</small></div>
+                  <div className="instrument-role-title"><h4>{g.name}</h4></div>
                 </header>
                 <div className="assigned-members">
                   {selectedPeople.length ? selectedPeople.map(p=>{
                     const responseStatus = responseFor(p.id)
                     const responseLabel = responseStatus==='accepted'?'Confirmado':responseStatus==='declined'?'Declinó':'Pendiente'
-                    return <div className="assigned-member" key={p.id}>
-                      <span className="avatar">{initials(`${p.firstName} ${p.lastName}`)}</span>
-                      <span className="assigned-member-identity"><strong>{p.firstName} {p.lastName}</strong><small>{p.role}</small></span>
-                      <span className={`member-response-badge ${responseStatus}`} title={`Estado de citación: ${responseLabel}`}><i/>{responseLabel}</span>
+                    return <div className={`assigned-member assigned-member-status ${responseStatus}`} key={p.id} title={`Estado de citación: ${responseLabel}`} aria-label={`${p.firstName} ${p.lastName}: ${responseLabel}`}>
+                      <span className="assigned-member-name">{p.firstName} {p.lastName}</span>
                       <button className="remove-assignee" onClick={()=>toggleMember(instrument,p.id)} title={`Quitar a ${p.firstName} ${p.lastName}`} aria-label={`Quitar a ${p.firstName} ${p.lastName}`}><X size={14}/></button>
                     </div>
                   }) : <div className="member-empty">Aún no hay integrantes asignados</div>}
